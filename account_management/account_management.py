@@ -77,7 +77,7 @@ def get_service_root(rft, root):
 
 
 def display_usage(pgm_name):
-    print("Usage: {} [-v] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
+    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
     print("       [-i <id>] [-m <prop>:<value>] [<op> [<op_args> ...]]")
 
 
@@ -85,7 +85,7 @@ def log_results(results):
     """
     Log the results of the account management validation run
     """
-    print(results.json_string())
+    results.write_results()
 
 
 def main(argv):
@@ -96,10 +96,11 @@ def main(argv):
     account = AccountService.RfAccountServiceMain()
     root = ServiceRoot.RfServiceRoot()
     raw_main = raw.RfRawMain()
+    output_dir = None
 
     try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:i:m:S:", ["verbose", "user=", "password=", "rhost=",
-                                                                   "id=", "match=", "Secure="])
+        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:i:m:S:", ["verbose", "user=", "password=", "rhost=",
+                                                                     "directory=", "id=", "match=", "Secure="])
     except getopt.GetoptError:
         rft.printErr("Error parsing options")
         display_usage(argv[0])
@@ -108,6 +109,8 @@ def main(argv):
     for index, (opt, arg) in enumerate(opts):
         if opt in ("-v", "--verbose"):
             rft.verbose = min((rft.verbose + 1), 5)
+        elif opt in ("-d", "--directory"):
+            output_dir = arg
         elif opt in ("-r", "--rhost"):
             rft.rhost = arg
         elif opt in ("-u", "--user"):
@@ -161,6 +164,8 @@ def main(argv):
 
     service_root = get_service_root(rft, root)
     results = Results("Account Management Checker", service_root)
+    if output_dir is not None:
+        results.set_output_dir(output_dir)
     results.add_cmd_line_args(opts, args)
     validator = SchemaValidation(rft, service_root, raw_main, results)
     for scenario in scenario_list:
