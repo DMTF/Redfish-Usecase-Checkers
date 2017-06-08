@@ -51,8 +51,8 @@ def setup_and_run_systems_operation(args, rft, systems, reset_type):
         command = "get"
     else:
         command = reset_type
-    rft.printVerbose(1, "power_control:setup_and_run_systems_operation: command = {}, rc = {}, response = {}, power_state = {}"
-                     .format(command, rc, r, get_power_state(j, d)))
+    rft.printVerbose(1, "power_control:setup_and_run_systems_operation: command = {}, rc = {}, response = {}"
+                        ", power_state = {}".format(command, rc, r, get_power_state(j, d)))
     return rc, r, j, d
 
 
@@ -112,14 +112,15 @@ def display_usage(pgm_name):
     """
     Display the program usage statement
     """
-    print("Usage: {} [-v] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>] [-I <Id>] <reset_type>".format(pgm_name))
+    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>] [-I <Id>] <reset_type>"
+          .format(pgm_name))
 
 
 def log_results(results):
     """
     Log the results of the power control validation run
     """
-    print(results.json_string())
+    results.write_results()
 
 
 def main(argv):
@@ -130,10 +131,11 @@ def main(argv):
     systems = Systems.RfSystemsMain()
     root = ServiceRoot.RfServiceRoot()
     raw_main = raw.RfRawMain()
+    output_dir = None
 
     try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:I:S:", ["verbose", "user=", "password=", "rhost=",
-                                                                 "Id=", "Secure="])
+        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:S:", ["verbose", "user=", "password=", "rhost=",
+                                                                   "directory=", "Id=", "Secure="])
     except getopt.GetoptError:
         rft.printErr("Error parsing options")
         display_usage(argv[0])
@@ -142,6 +144,8 @@ def main(argv):
     for index, (opt, arg) in enumerate(opts):
         if opt in ("-v", "--verbose"):
             rft.verbose = min((rft.verbose + 1), 5)
+        elif opt in ("-d", "--directory"):
+            output_dir = arg
         elif opt in ("-r", "--rhost"):
             rft.rhost = arg
         elif opt in ("-u", "--user"):
@@ -171,6 +175,8 @@ def main(argv):
 
     service_root = get_service_root(rft, root)
     results = Results("Power Control Checker", service_root)
+    if output_dir is not None:
+        results.set_output_dir(output_dir)
     results.add_cmd_line_args(opts, args)
     validator = SchemaValidation(rft, service_root, raw_main, results)
     rc, msg = validate_reset_command(rft, systems, validator, reset_type)

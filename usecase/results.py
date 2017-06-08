@@ -4,11 +4,15 @@
 
 import datetime
 import json
+import os
+import sys
 
 
 class Results(object):
 
     def __init__(self, tool_name, service_root):
+        self.output_dir = os.getcwd()
+        self.results_filename = "results.json"
         self.tool_name = tool_name
         self.return_code = 0
         self.results = {"ToolName": tool_name}
@@ -36,6 +40,26 @@ class Results(object):
 
     def add_cmd_line_args(self, opts, args):
         self.results.update({"CommandLineArgs": {"opts": opts, "args": args}})
+
+    def set_output_dir(self, output_dir):
+        self.output_dir = os.path.abspath(output_dir)
+        try:
+            if not os.path.isdir(self.output_dir):
+                os.mkdir(self.output_dir)
+        except OSError as e:
+            print("Error creating output directory {}, error: {}".format(self.output_dir, e), file=sys.stderr)
+            print("Will write results file to current working directory instead.", file=sys.stderr)
+            self.output_dir = os.getcwd()
+
+    def write_results(self):
+        path = os.path.join(self.output_dir, self.results_filename)
+        try:
+            with open(path, 'w') as outfile:
+                json.dump(self.results, outfile)
+        except OSError as e:
+            print("Error writing results file to {}, error: {}".format(path, e), file=sys.stderr)
+            print("Printing results to STDOUT instead.", file=sys.stderr)
+            print(json.dumps(self.results))
 
     def json_string(self):
         return json.dumps(self.results)
