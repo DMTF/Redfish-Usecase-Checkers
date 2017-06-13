@@ -22,7 +22,7 @@ def getServiceRoot(ipaddr, auth=None, chkCert=True, nossl=False):
     Get service root
     """
     try:
-        rs = requests.get(l_prefixSSL(nossl) + ipaddr + '/redfish/v1', auth=auth, verify=chkCert)
+        rs = requests.get(l_prefixSSL(nossl) + ipaddr + '/redfish/v1', auth=auth, verify=chkCert, timeout=20)
         if l_getValid(rs):
             return True, rs.json(object_pairs_hook=OrderedDict)
     except Exception as ex:
@@ -36,7 +36,7 @@ def getSingleSystem(sutURI, auth=None, chkCert=True, nossl=False):
     """
     sysName = sutURI.rsplit('/',1)[-1]
     try:
-        rs = requests.get(l_prefixSSL(nossl) + sutURI, auth=auth, verify=chkCert)
+        rs = requests.get(l_prefixSSL(nossl) + sutURI, auth=auth, verify=chkCert, timeout=20)
         if l_getValid(rs):
             return (True, sysName, sutURI, rs.json())
     except Exception as ex:
@@ -54,7 +54,7 @@ def getSystems(ipaddr, auth=None, chkCert=True, nossl=False):
     status_code = -1
 
     try:
-        r = requests.get(l_prefixSSL(nossl) + ipaddr + "/redfish/v1/Systems", auth=auth, verify=chkCert)
+        r = requests.get(l_prefixSSL(nossl) + ipaddr + "/redfish/v1/Systems", auth=auth, verify=chkCert, timeout=20)
         status_code = r.status_code
         success = l_getValid(r)
         if success:
@@ -86,7 +86,7 @@ def postBootAction(SUT, typeBoot, auth=None, chkCert=True, nossl=False):
     payload = {
                 "ResetType": typeBoot
               }
-    r = requests.post(l_prefixSSL(nossl) + SUT + "/Actions/ComputerSystem.Reset", auth=auth, verify=chkCert, json=payload)
+    r = requests.post(l_prefixSSL(nossl) + SUT + "/Actions/ComputerSystem.Reset", auth=auth, verify=chkCert, json=payload,timeout=20)
     return r
 
 
@@ -163,6 +163,8 @@ def verifyBoot(ipaddr, override, typeBoot, single=None, auth=None, delay=120, ch
     # get one time options
     print('{}, collected {} systems, code {}'.format('FAIL' if not success else 'SUCCESS', len(sutList), rcode))
     cntSuccess = 0
+    successes = list()
+    msgs = list()
     for sut in sutList:
         sutStatus, sutName, sutURI, sutJson = sut
         print( sutStatus, sutName, sutURI )
@@ -205,15 +207,20 @@ def verifyBoot(ipaddr, override, typeBoot, single=None, auth=None, delay=120, ch
                 print('Boot status change', newOverride, newType)
                 sleeptime = sleeptime - 30
             successSystem = checkBootPass(currentOverride, currentType, newOverride, newType)
-            print('Boot status change {}'.format('FAIL' if not successSystem else 'SUCCESS'))
+            currentMsg = 'Boot status change {}'.format('FAIL' if not successSystem else 'SUCCESS')
             cntSuccess += 1 if successSystem else 0
             success = success and successSystem
+            successes.append(successSystem)
+            msgs.append(currentMsg)
         else:
-            print('Boot system does not exist', sutName)
-            success = False
+            currentMsg = 'Boot system does not exist {}'.format( sutName )
+            print (currentMsg)
+            success = successSystem = False
+            successes.append(successSystem)
+            msgs.append(currentMsg)
 
     msg = '{} out of {} systems passed'.format(cntSuccess, len(sutList))
-    return success, msg
+    return [sutItem[1] for sutItem in sutList], successes, msgs
 
 def main(argv):
     argget = argparse.ArgumentParser(description='Usecase tool to check compliance to POST Boot action')
@@ -250,21 +257,27 @@ def main(argv):
             argsList.append(argsplit[1])
    
     # create results object
+    # how do I report multiple tested systems??
     success, service_root = getServiceRoot(ip, auth=auth, chkCert=(not nochkcert), nossl=nossl)
     results = Results("One Time Boot", service_root if success else dict())
+    results.add_cmd_line_args(opts, argsList)
     if output_dir is not None:
         results.set_output_dir(output_dir)
+
     if not success:
-        rc, msg = False, "ServiceRoot not available"
+        suts ,rcs, msgs = ['None'], [False], ["ServiceRoot not available"]
+        print( "ServiceRoot is not available" )
     else:
-        rc, msg = verifyBoot(ip, override, typeBoot, single=args.single, auth=auth, delay=120, chkCert=(not nochkcert), nossl=nossl)
-    rc = 0 if rc == True else 1
-    results.add_cmd_line_args(opts, argsList)
+        suts, rcs, msgs = verifyBoot(ip, override, typeBoot, single=args.single, auth=auth, delay=120, chkCert=(not nochkcert), nossl=nossl)
+    
+    for sut, rcbool, msg in zip(suts, rcs, msgs):
+        rc = 0 if rcbool else 1
+        results.update_test_results(sut, rc, msg)
+
     # validator = SchemaValidation(rft, service_root, raw_main, results)
-    results.update_test_results(override+" "+typeBoot, rc, msg)
     results.write_results()
 
-    return rc
+    return 0 if False not in rcs else 1
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
