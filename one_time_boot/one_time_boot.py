@@ -18,6 +18,9 @@ l_getValid = lambda res: res.status_code not in [400, 404] and res.headers.get('
 l_prefixSSL = lambda b: ("http://" if b else "https://") 
 
 def getServiceRoot(ipaddr, auth=None, chkCert=True, nossl=False):
+    """
+    Get service root
+    """
     try:
         rs = requests.get(l_prefixSSL(nossl) + ipaddr + '/redfish/v1', auth=auth, verify=chkCert)
         if l_getValid(rs):
@@ -147,8 +150,11 @@ def verifyBoot(ipaddr, override, typeBoot, single=None, auth=None, delay=120, ch
     
     auth = auth if not nossl else None
     print('verifyBoot on {}'.format(l_prefixSSL(nossl) + ipaddr))
-    
+   
+    # corral args into dict for positional params
     argdict = {'auth': auth, 'chkCert':chkCert, 'nossl':nossl}
+    
+    # depending on parameter, gather single system or all systems
     if single is not None:
         success, sutList, rcode = True, [getSingleSystem(ipaddr + single, **argdict)], '-'
     else:
@@ -160,9 +166,11 @@ def verifyBoot(ipaddr, override, typeBoot, single=None, auth=None, delay=120, ch
     for sut in sutList:
         sutStatus, sutName, sutURI, sutJson = sut
         print( sutStatus, sutName, sutURI )
+        # if this system succeeded, start verify
         if sutStatus:
             allowedValue = checkAllowedValue( sutJson, typeBoot )
 
+            # change boot object, then check if behavior succeeded
             r = patchBootOverride(sutURI, override, typeBoot, **argdict)
             print(r.text,r.status_code)
             sleep(10)
@@ -183,10 +191,12 @@ def verifyBoot(ipaddr, override, typeBoot, single=None, auth=None, delay=120, ch
                 else:
                     print('Boot change patch success')
             
+            # commit restart action, requires GracefulRestart
             r = postBootAction(sutURI, "GracefulRestart", **argdict)
             print(r.text,r.status_code)
             sleeptime = delay
-            
+           
+            # loop until sleeptime ends, pass if status is correct
             newOverride, newType = getBootStatus(sutURI, **argdict)
             print('Boot status change', newOverride, newType)
             while sleeptime > 0:
@@ -216,6 +226,7 @@ def main(argv):
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
     argget.add_argument('--single', type=str, help='uri points to a single system rather than a whole service')
+    argget.add_argument('--output', default=None, type=str, help='output directory for results.json')
     
     args = argget.parse_args()
         
@@ -225,6 +236,7 @@ def main(argv):
     nossl = args.nossl
     auth = (args.user, args.passwd)
     nochkcert = args.nochkcert
+    output_dir = args.output
     
     print(ip, override, typeBoot, nochkcert, nossl)
     opts = []
@@ -236,9 +248,12 @@ def main(argv):
             argsList.append('**********')
         else:
             argsList.append(argsplit[1])
-    
+   
+    # create results object
     success, service_root = getServiceRoot(ip, auth=auth, chkCert=(not nochkcert), nossl=nossl)
     results = Results("One Time Boot", service_root if success else dict())
+    if output_dir is not None:
+        results.set_output_dir(output_dir)
     if not success:
         rc, msg = False, "ServiceRoot not available"
     else:
@@ -247,8 +262,7 @@ def main(argv):
     results.add_cmd_line_args(opts, argsList)
     # validator = SchemaValidation(rft, service_root, raw_main, results)
     results.update_test_results(override+" "+typeBoot, rc, msg)
-    print(msg)
-    print(results.json_string())
+    results.write_results()
 
     return rc
 
