@@ -166,7 +166,8 @@ def main(argv):
     results = Results("Account Management Checker", service_root)
     if output_dir is not None:
         results.set_output_dir(output_dir)
-    results.add_cmd_line_args(opts, args)
+    args_list = [v for opt in opts for v in opt] + args
+    results.add_cmd_line_args(args_list)
     validator = SchemaValidation(rft, service_root, raw_main, results)
     for scenario in scenario_list:
         rc, msg = validate_account_command(rft, account, validator, scenario)

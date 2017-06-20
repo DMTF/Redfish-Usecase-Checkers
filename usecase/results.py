@@ -38,8 +38,8 @@ class Results(object):
                 self.results["TestResults"]["ErrorMessages"].append(msg)
             self.return_code = rc
 
-    def add_cmd_line_args(self, opts, args):
-        self.results.update({"CommandLineArgs": {"opts": opts, "args": args}})
+    def add_cmd_line_args(self, args):
+        self.results.update({"CommandLineArgs": args})
 
     def set_output_dir(self, output_dir):
         self.output_dir = os.path.abspath(output_dir)
