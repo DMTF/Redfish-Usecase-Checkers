@@ -229,7 +229,7 @@ def main(argv):
     output_dir = args.output
     
     print(ip, override, typeBoot, nochkcert, nossl)
-    argsList = []
+    argsList = [argv[0]]
     for name, value in vars(args).items():
         if name == "passwd":
             argsList.append(name + "=" + "********")
