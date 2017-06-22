@@ -99,11 +99,13 @@ class SchemaValidation(object):
         Validate the JSON response against the schema
         """
         if json_data is None:
-            self.rft.printErr(1, "SchemaValidation:validate_json: No JSON payload to validate")
-            return 1, "No JSON payload to validate"
+            # JSON payload not required
+            self.rft.printVerbose(1, "SchemaValidation:validate_json: No JSON payload to validate")
+            return 0, None
         if schema is None:
-            self.rft.printErr("SchemaValidation:validate_json: No JSON schema retrieved for validation")
-            return 2, "No JSON schema retrieved for validation"
+            # Redfish schema not required
+            self.rft.printVerbose(1, "SchemaValidation:validate_json: No JSON schema retrieved for validation")
+            return 0, None
         # validate the json response against the schema
         try:
             self.rft.printVerbose(5, "SchemaValidation:validate_json: JSON to be validated: {}".format(json_data))

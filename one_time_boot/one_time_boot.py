@@ -229,21 +229,18 @@ def main(argv):
     output_dir = args.output
     
     print(ip, override, typeBoot, nochkcert, nossl)
-    opts = []
-    argsList = []
-    for each in str(args).replace('Namespace(','')[:-1].split(', '):
-        argsplit = each.split('=',1)
-        opts.append(argsplit[0])
-        if argsplit[0] == 'passwd':
-            argsList.append('**********')
+    argsList = [argv[0]]
+    for name, value in vars(args).items():
+        if name == "passwd":
+            argsList.append(name + "=" + "********")
         else:
-            argsList.append(argsplit[1])
+            argsList.append(name + "=" + str(value))
    
     # create results object
     # how do I report multiple tested systems??
     success, service_root = getServiceRoot(ip, auth=auth, chkCert=(not nochkcert), nossl=nossl)
     results = Results("One Time Boot", service_root if success else dict())
-    results.add_cmd_line_args(opts, argsList)
+    results.add_cmd_line_args(argsList)
     if output_dir is not None:
         results.set_output_dir(output_dir)
 
@@ -266,7 +263,7 @@ def main(argv):
         for sut in sutList:
             rcbool, msg = verifyBoot(sut, override, typeBoot, auth=auth, delay=args.delay, chkCert=(not nochkcert), nossl=nossl)
             rc = 0 if rcbool else 1
-            cntSuccess += 1 if rc else 0
+            cntSuccess += 1 if rc == 0 else 0
             results.update_test_results(sut[1], rc, msg)
         
         msg = '{} out of {} systems passed'.format(cntSuccess, len(sutList))
