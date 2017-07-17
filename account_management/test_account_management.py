@@ -16,21 +16,15 @@ class AccountServiceTest(TestCase):
     @mock.patch('requests.models.Response', autospec=True)
     @mock.patch('account_management.redfishtoolTransport.RfTransport', autospec=True)
     @mock.patch('account_management.AccountService.RfAccountServiceMain', autospec=True)
-    @mock.patch('account_management.raw.RfRawMain', autospec=True)
     @mock.patch('account_management.SchemaValidation', autospec=True)
-    def setUp(self, mock_validator, mock_raw_main, mock_account_service, mock_transport, mock_response):
+    def setUp(self, mock_validator, mock_account_service, mock_transport, mock_response):
         self.validator = mock_validator
-        self.raw = mock_raw_main
         self.account = mock_account_service
         self.rft = mock_transport
         mock_transport.IdOptnCount = 1
 
         def run_validator_side_effect(json, schema):
             return 0, None
-
-        def run_raw_operation_side_effect(rft):
-            mock_response.status_code = 200
-            return 0, mock_response, False, None
 
         def run_good_operation_side_effect(rft):
             mock_response.status_code = 200
@@ -42,7 +36,6 @@ class AccountServiceTest(TestCase):
             return 5, mock_response, False, None
 
         self.validator.validate_json.side_effect = run_validator_side_effect
-        self.raw.runOperation.side_effect = run_raw_operation_side_effect
         self.good_side_effect = run_good_operation_side_effect
         self.bad_side_effect = run_bad_operation_side_effect
         self.account.runOperation.side_effect = self.good_side_effect

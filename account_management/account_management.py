@@ -3,6 +3,7 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/LICENSE.md
 
 import getopt
+import logging
 import re
 import sys
 
@@ -10,7 +11,6 @@ import sys
 import toolspath
 from redfishtool import AccountService
 from redfishtool import ServiceRoot
-from redfishtool import raw
 from redfishtool import redfishtoolTransport
 from usecase.results import Results
 from usecase.validation import SchemaValidation
@@ -95,7 +95,6 @@ def main(argv):
     rft = redfishtoolTransport.RfTransport()
     account = AccountService.RfAccountServiceMain()
     root = ServiceRoot.RfServiceRoot()
-    raw_main = raw.RfRawMain()
     output_dir = None
 
     try:
@@ -162,13 +161,23 @@ def main(argv):
     else:
         scenario_list = [["AccountService"] + args]
 
+    # Set up logging
+    log_level = logging.WARNING
+    if 0 < rft.verbose < 3:
+        log_level = logging.INFO
+    elif rft.verbose >= 3:
+        log_level = logging.DEBUG
+    logging.basicConfig(stream=sys.stderr, level=log_level)
+
     service_root = get_service_root(rft, root)
     results = Results("Account Management Checker", service_root)
     if output_dir is not None:
         results.set_output_dir(output_dir)
     args_list = [argv[0]] + [v for opt in opts for v in opt] + args
     results.add_cmd_line_args(args_list)
-    validator = SchemaValidation(rft, service_root, raw_main, results)
+    auth = (rft.user, rft.password)
+    nossl = True if rft.secure == "Never" else False
+    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, nossl=nossl)
     for scenario in scenario_list:
         rc, msg = validate_account_command(rft, account, validator, scenario)
         results.update_test_results(scenario[1], rc, msg)

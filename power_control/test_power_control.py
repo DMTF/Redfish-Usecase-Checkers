@@ -16,11 +16,9 @@ class PowerControlTest(TestCase):
     @mock.patch('requests.models.Response', autospec=True)
     @mock.patch('power_control.redfishtoolTransport.RfTransport', autospec=True)
     @mock.patch('power_control.Systems.RfSystemsMain', autospec=True)
-    @mock.patch('power_control.raw.RfRawMain', autospec=True)
     @mock.patch('power_control.SchemaValidation', autospec=True)
-    def setUp(self, mock_validator, mock_raw_main, mock_systems, mock_transport, mock_response):
+    def setUp(self, mock_validator, mock_systems, mock_transport, mock_response):
         self.validator = mock_validator
-        self.raw = mock_raw_main
         self.sys = mock_systems
         self.rft = mock_transport
         mock_transport.IdOptnCount = 1
@@ -30,10 +28,6 @@ class PowerControlTest(TestCase):
         def run_validator_side_effect(json, schema):
             return 0, None
 
-        def run_raw_operation_side_effect(rft):
-            mock_response.status_code = 200
-            return 0, mock_response, False, None
-
         def run_operation_side_effect(rft):
             if len(rft.subcommandArgv) > 2 and rft.subcommandArgv[2] in valid_reset_types:
                 mock_response.status_code = 204
@@ -42,7 +36,6 @@ class PowerControlTest(TestCase):
                 return 8, None, False, None
 
         self.validator.validate_json.side_effect = run_validator_side_effect
-        self.raw.runOperation.side_effect = run_raw_operation_side_effect
         self.sys.runOperation.side_effect = run_operation_side_effect
 
     def run_good_reset(self, reset_type):
