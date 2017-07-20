@@ -16,48 +16,11 @@ It leverages modules from [DMTF/Redfishtool](https://github.com/DMTF/Redfishtool
 
 ## Prerequisites
 
-Install jsonschema:
+Install `jsonschema` and `redfishtool`:
+
 ```
 pip install jsonschema
-```
-
-The Redfish-Usecase-Checkers also require a copy of the `redfishtool` package (subdirectory)
-from [DMTF/Redfishtool](https://github.com/DMTF/Redfishtool) to be copied into the directory where the
-Redfish-Usecase-Checkers are installed. The `redfishtool` subdirectory should be a peer (sibling) of the
-subdirectories `power_control`, `account_management`, etc. For example:
-
-```
-Redfish-Usecase-Checkers
-├── account_management
-│   ├── account_management.py
-│   ├── test_account_management.py
-│   └── toolspath.py
-├── one_time_boot
-│   ├── one_time_boot.py
-│   └── test_one_time_boot.py
-├── power_control
-│   ├── power_control.py
-│   ├── test_power_control.py
-│   └── toolspath.py
-├── redfishtool
-│   ├── AccountService.py
-│   ├── Chassis.py
-│   ├── Managers.py
-│   ├── ServiceRoot.py
-│   ├── SessionService.py
-│   ├── Systems.py
-│   ├── __init__.py
-│   ├── raw.py
-│   └── redfishtoolTransport.py
-├── AUTHORS.md
-├── CHANGELOG.md
-├── LICENSE.md
-├── README.md
-├── UNITTEST.md
-└── usecase
-    ├── __init__.py
-    ├── results.py
-    └── validation.py
+pip install redfishtool
 ```
 
 ## Example Usage
