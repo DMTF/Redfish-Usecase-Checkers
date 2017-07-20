@@ -23,19 +23,21 @@ class Results(object):
         else:
             self.results.update({"ServiceRoot": {}})
 
-    def update_test_results(self, test_name, rc, msg):
+    def update_test_results(self, test_name, rc, msg, skipped=False):
         if "TestResults" not in self.results:
             self.results.update({"TestResults": {}})
         if test_name not in self.results["TestResults"]:
-            self.results["TestResults"].update({test_name: {"pass": 0, "fail": 0}})
-        if rc == 0:
+            self.results["TestResults"].update({test_name: {"pass": 0, "fail": 0, "skip": 0}})
+        if skipped:
+            self.results["TestResults"][test_name]["skip"] += 1
+        elif rc == 0:
             self.results["TestResults"][test_name]["pass"] += 1
         else:
             self.results["TestResults"][test_name]["fail"] += 1
             if "ErrorMessages" not in self.results["TestResults"]:
                 self.results["TestResults"].update({"ErrorMessages": []})
             if msg is not None:
-                self.results["TestResults"]["ErrorMessages"].append(msg)
+                self.results["TestResults"]["ErrorMessages"].append(test_name + ": " + msg)
             self.return_code = rc
 
     def add_cmd_line_args(self, args):

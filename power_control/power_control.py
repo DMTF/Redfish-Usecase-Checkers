@@ -3,13 +3,13 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/LICENSE.md
 
 import getopt
+import logging
 import sys
 
 # noinspection PyUnresolvedReferences
 import toolspath
 from redfishtool import ServiceRoot
 from redfishtool import Systems
-from redfishtool import raw
 from redfishtool import redfishtoolTransport
 from usecase.results import Results
 from usecase.validation import SchemaValidation
@@ -130,7 +130,6 @@ def main(argv):
     rft = redfishtoolTransport.RfTransport()
     systems = Systems.RfSystemsMain()
     root = ServiceRoot.RfServiceRoot()
-    raw_main = raw.RfRawMain()
     output_dir = None
 
     try:
@@ -173,13 +172,23 @@ def main(argv):
 
     reset_type = args[0]
 
+    # Set up logging
+    log_level = logging.WARNING
+    if 0 < rft.verbose < 3:
+        log_level = logging.INFO
+    elif rft.verbose >= 3:
+        log_level = logging.DEBUG
+    logging.basicConfig(stream=sys.stderr, level=log_level)
+
     service_root = get_service_root(rft, root)
     results = Results("Power Control Checker", service_root)
     if output_dir is not None:
         results.set_output_dir(output_dir)
     args_list = [argv[0]] + [v for opt in opts for v in opt] + args
     results.add_cmd_line_args(args_list)
-    validator = SchemaValidation(rft, service_root, raw_main, results)
+    auth = (rft.user, rft.password)
+    nossl = True if rft.secure == "Never" else False
+    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, nossl=nossl)
     rc, msg = validate_reset_command(rft, systems, validator, reset_type)
     results.update_test_results(reset_type, rc, msg)
 
