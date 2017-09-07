@@ -1,0 +1,5 @@
+{
+  "test": {
+    "command": "$interpreter one_time_boot.py $target_system Once Pxe $nochkcert -u $username -p $password --output $output_subdir"
+  }
+}
