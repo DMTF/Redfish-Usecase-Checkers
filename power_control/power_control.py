@@ -188,12 +188,13 @@ def main(argv):
     results.add_cmd_line_args(args_list)
     auth = (rft.user, rft.password)
     nossl = True if rft.secure == "Never" else False
-    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, nossl=nossl)
+    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, verify=False, nossl=nossl)
     rc, msg = validate_reset_command(rft, systems, validator, reset_type)
     results.update_test_results(reset_type, rc, msg)
 
     log_results(results)
     exit(results.get_return_code())
+
 
 if __name__ == "__main__":
     main(sys.argv)

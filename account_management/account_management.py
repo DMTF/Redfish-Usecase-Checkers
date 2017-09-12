@@ -177,7 +177,7 @@ def main(argv):
     results.add_cmd_line_args(args_list)
     auth = (rft.user, rft.password)
     nossl = True if rft.secure == "Never" else False
-    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, nossl=nossl)
+    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, verify=False, nossl=nossl)
     for scenario in scenario_list:
         rc, msg = validate_account_command(rft, account, validator, scenario)
         results.update_test_results(scenario[1], rc, msg)
