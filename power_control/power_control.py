@@ -4,6 +4,7 @@
 
 import getopt
 import logging
+import re
 import sys
 
 # noinspection PyUnresolvedReferences
@@ -112,8 +113,8 @@ def display_usage(pgm_name):
     """
     Display the program usage statement
     """
-    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>] [-I <Id>] <reset_type>"
-          .format(pgm_name))
+    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
+    print("       [-I <Id>] [-M <prop>:<val>] [-L <Link>] [-F] [-1] <reset_type>")
 
 
 def log_results(results):
@@ -133,8 +134,9 @@ def main(argv):
     output_dir = None
 
     try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:S:", ["verbose", "user=", "password=", "rhost=",
-                                                                   "directory=", "Id=", "Secure="])
+        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:M:F1L:S:",
+                                       ["verbose", "user=", "password=", "rhost=", "directory=", "Id=", "Match=",
+                                        "First", "One", "Link=", "Secure="])
     except getopt.GetoptError:
         rft.printErr("Error parsing options")
         display_usage(argv[0])
@@ -158,12 +160,44 @@ def main(argv):
             rft.gotIdOptn = rft.gotMatchOptn = rft.firstOptn = True
             rft.IdOptnCount += 1
             rft.matchProp = "Id"
+        elif opt in ("-M", "--Match"):
+            # arg is of the form: "<prop>:<value>"
+            match_prop_pattern = "^(.+):(.+)$"
+            match_prop_match = re.search(match_prop_pattern, arg)
+            if match_prop_match:
+                rft.matchProp = match_prop_match.group(1)
+                rft.matchValue = match_prop_match.group(2)
+                rft.IdOptnCount += 1
+                rft.gotMatchOptn = True
+            else:
+                rft.printErr("Invalid --Match= option format: {}".format(arg))
+                rft.printErr("     Expect --Match=<prop>:<value> Ex -M AssetTag:5555, --Match=AssetTag:5555",
+                             noprog=True)
+                sys.exit(1)
+        elif opt in ("-F", "--First"):
+            rft.firstOptn = True
+            rft.IdOptnCount += 1
+        elif opt in ("-1", "--One"):
+            rft.oneOptn = True
+            rft.IdOptnCount += 1
+        elif opt in ("-L", "--Link"):
+            rft.Link = arg
+            rft.gotIdOptn = True
+            rft.IdOptnCount += 1
         elif opt in ("-S", "--Secure"):  # Specify when to use HTTPS
             rft.secure = arg
             if rft.secure not in rft.secureValidValues:
                 rft.printErr("Invalid --Secure option: {}".format(rft.secure))
                 rft.printErr("     Valid values: {}".format(rft.secureValidValues), noprog=True)
                 sys.exit(1)
+
+    # check for invalid option combinations
+    if rft.IdOptnCount > 1:
+        if rft.IdOptnCount > 2 or (not (rft.firstOptn and rft.gotMatchOptn)):
+            rft.printErr("Syntax error: invalid combination of -I, -M, -1, -F, -L options.")
+            rft.printErr("    Valid combinations: -I | -M | -1 | -F | -L | -M -F", noprog=True)
+            display_usage(argv[0])
+            sys.exit(1)
 
     if not args or len(args) > 1:
         rft.printErr("Must supply exactly one reset_type argument")
