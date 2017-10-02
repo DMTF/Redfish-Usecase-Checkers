@@ -43,7 +43,7 @@ $ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --single 
 
 ### Power control checker examples
 
-Issue reset command `GracefulRestart` to systems with Id `437XR1138R2` on host `127.0.0.1:8000` with no https security:
+Issue reset command `GracefulRestart` to system with Id `437XR1138R2` on host `127.0.0.1:8000` with no https security:
 
 ```
 $ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Never -I 437XR1138R2 GracefulRestart
