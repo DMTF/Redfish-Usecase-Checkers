@@ -12,7 +12,7 @@ This is a collection of tools to exercise and validate common use cases for DMTF
 * Add/modify/delete Account users and roles
 * If the command returns a JSON payload, it is validated against the service schema
 
-It leverages modules from [DMTF/Redfishtool](https://github.com/DMTF/Redfishtool).
+Some of the checker tools leverage modules from [DMTF/Redfishtool](https://github.com/DMTF/Redfishtool).
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ pip install redfishtool
 
 Each tool may be ran with -h, for verbose help on parameters.
 
-### One time boot checker example
+### One time boot checker examples
 
 Issue patch request and issue POST action to resetting host `127.0.0.1:8000`, with mode Once and target Pxe, with user and pass
 
@@ -41,13 +41,38 @@ Issue patch request and issue POST action to resetting specific system `sysNumbe
 $ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --single /redfish/v1/Systems/sysName1
 ```
 
-### Power control checker example
+### Power control checker examples
 
-Issue reset command `GracefulRestart` to Systems Id `437XR1138R2` on host `127.0.0.1:8000` with no security:
+Issue reset command `GracefulRestart` to systems with Id `437XR1138R2` on host `127.0.0.1:8000` with no https security:
 
 ```
-$ python3 power_control.py -r 127.0.0.1:8000 -S Never -I 437XR1138R2 GracefulRestart
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Never -I 437XR1138R2 GracefulRestart
 ```
+
+Issue reset command `On` to the first system in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
+
+```
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -F On
+```
+
+Issue reset command `On` to the only system in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
+
+```
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -1 On
+```
+
+Issue reset command `Nmi` to system at link `/redfish/v1/Systems/System.Embedded.1` on host `127.0.0.1:8000` with https security always enabled:
+
+```
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -L /redfish/v1/Systems/System.Embedded.1 Nmi
+```
+
+Issue reset command `ForceOff` to system with AssatTag value `12345` on host `127.0.0.1:8000` with https security always enabled:
+
+```
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -M AssetTag:12345 ForceOff
+```
+
 
 ### Account management checker examples
 
