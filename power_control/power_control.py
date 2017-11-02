@@ -114,7 +114,7 @@ def display_usage(pgm_name):
     Display the program usage statement
     """
     print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
-    print("       [-I <Id>] [-M <prop>:<val>] [-L <Link>] [-F] [-1] <reset_type>")
+    print("       [-I <Id>] [-M <prop>:<val>] [-L <Link>] [-F] [-1] [-a] <reset_type>")
 
 
 def log_results(results):
@@ -134,9 +134,9 @@ def main(argv):
     output_dir = None
 
     try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:M:F1L:S:",
+        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:M:F1L:aS:",
                                        ["verbose", "user=", "password=", "rhost=", "directory=", "Id=", "Match=",
-                                        "First", "One", "Link=", "Secure="])
+                                        "First", "One", "Link=", "all", "Secure="])
     except getopt.GetoptError:
         rft.printErr("Error parsing options")
         display_usage(argv[0])
@@ -184,6 +184,9 @@ def main(argv):
             rft.Link = arg
             rft.gotIdOptn = True
             rft.IdOptnCount += 1
+        elif opt in ("-a", "--all"):
+            rft.allOptn = True
+            rft.IdLevel2OptnCount += 1
         elif opt in ("-S", "--Secure"):  # Specify when to use HTTPS
             rft.secure = arg
             if rft.secure not in rft.secureValidValues:

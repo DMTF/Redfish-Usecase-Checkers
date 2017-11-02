@@ -73,6 +73,11 @@ Issue reset command `ForceOff` to system with AssatTag value `12345` on host `12
 $ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -M AssetTag:12345 ForceOff
 ```
 
+Issue reset command `GracefulShutdown` to all systems in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
+
+```
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always --all GracefulShutdown
+```
 
 ### Account management checker examples
 
