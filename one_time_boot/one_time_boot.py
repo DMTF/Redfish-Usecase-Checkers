@@ -143,7 +143,7 @@ def checkAllowedValue(json, value):
 
 def verifyBoot(sut, override, typeBoot, auth=None, delay=120, chkCert=True, nossl=False):
     """
-    Verify the service for one-time boot compliance
+    Verify the service for one-time boot conformance
 
     param arg1: sut tuple (status, name, uri, json)
     param arg2: type of enable [Disable, Once, Continuous]
@@ -214,7 +214,7 @@ def verifyBoot(sut, override, typeBoot, auth=None, delay=120, chkCert=True, noss
 
 
 def main(argv):
-    argget = argparse.ArgumentParser(description='Usecase tool to check compliance to POST Boot action')
+    argget = argparse.ArgumentParser(description='Usecase tool to check conformance to POST Boot action')
     argget.add_argument('ip', type=str, help='ip to test on')
     argget.add_argument('override', type=str, help='type of boot procedure')
     argget.add_argument('type', type=str, help='what to boot into')
