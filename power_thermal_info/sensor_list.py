@@ -41,7 +41,10 @@ def get_sensors( context ):
         chassis = context.get( chassis_member["@odata.id"], None )
 
         # Get the Chassis status
-        chassis_instance = { "ChassisName": chassis.dict["Id"], "Readings": [] }
+        chassis_instance = {
+            "ChassisName": chassis.dict["Id"],
+            "Readings": []
+        }
         sensor_list.append( chassis_instance )
         get_discrete_status( "State", chassis.dict, chassis_instance["Readings"] )
 
@@ -116,17 +119,18 @@ def get_discrete_status( name, object, readings ):
         return
     state, health = get_status( object )
 
-    reading = {}
-    reading["Name"] = name
-    reading["Reading"] = state
-    reading["Units"] = None
-    reading["Health"] = health
-    reading["LowerFatal"] = None
-    reading["LowerCritical"] = None
-    reading["LowerCaution"] = None
-    reading["UpperCaution"] = None
-    reading["UpperCritical"] = None
-    reading["UpperFatal"] = None
+    reading = {
+        "Name": name,
+        "Reading": state,
+        "Units": None,
+        "Health": health,
+        "LowerFatal": None,
+        "LowerCritical": None,
+        "LowerCaution": None,
+        "UpperCaution": None,
+        "UpperCritical": None,
+        "UpperFatal": None,
+    }
 
     readings.append( reading )
 
@@ -162,17 +166,18 @@ def get_analog_status_full( name, object, readings ):
     if reading_val is None:
         reading_val = state
 
-    reading = {}
-    reading["Name"] = name
-    reading["Reading"] = reading_val
-    reading["Units"] = units
-    reading["Health"] = health
-    reading["LowerFatal"] = object.get( "LowerThresholdFatal", None )
-    reading["LowerCritical"] = object.get( "LowerThresholdCritical", None )
-    reading["LowerCaution"] = object.get( "LowerThresholdNonCritical", None )
-    reading["UpperCaution"] = object.get( "UpperThresholdNonCritical", None )
-    reading["UpperCritical"] = object.get( "UpperThresholdCritical", None )
-    reading["UpperFatal"] = object.get( "UpperThresholdFatal", None )
+    reading = {
+        "Name": name,
+        "Reading": reading_val,
+        "Units": units,
+        "Health": health,
+        "LowerFatal": object.get( "LowerThresholdFatal", None ),
+        "LowerCritical": object.get( "LowerThresholdCritical", None ),
+        "LowerCaution": object.get( "LowerThresholdNonCritical", None ),
+        "UpperCaution": object.get( "UpperThresholdNonCritical", None ),
+        "UpperCritical": object.get( "UpperThresholdCritical", None ),
+        "UpperFatal": object.get( "UpperThresholdFatal", None ),
+    }
 
     readings.append( reading )
 
@@ -191,17 +196,18 @@ def get_analog_status_small( name, field, units, object, readings ):
     if field not in object:
         return
 
-    reading = {}
-    reading["Name"] = name
-    reading["Reading"] = object[field]
-    reading["Units"] = units
-    reading["Health"] = None
-    reading["LowerFatal"] = None
-    reading["LowerCritical"] = None
-    reading["LowerCaution"] = None
-    reading["UpperCaution"] = None
-    reading["UpperCritical"] = None
-    reading["UpperFatal"] = None
+    reading = {
+        "Name": name,
+        "Reading": object[field],
+        "Units": units,
+        "Health": None,
+        "LowerFatal": None,
+        "LowerCritical": None,
+        "LowerCaution": None,
+        "UpperCaution": None,
+        "UpperCritical": None,
+        "UpperFatal": None,
+    }
 
     readings.append( reading )
 
