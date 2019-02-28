@@ -58,7 +58,7 @@ def get_sensors( context ):
                     power_supply_name = "Power Supply " + power_supply["MemberId"]
                     if "Name" in power_supply:
                         power_supply_name = power_supply["Name"]
-                    get_discrete_status( power_supply_name, power_supply, chassis_instance["Readings"] )
+                    get_discrete_status( power_supply_name + " State", power_supply, chassis_instance["Readings"] )
                     get_analog_status_small( power_supply_name, "ReadingVolts", "V", power_supply, chassis_instance["Readings"] )
                     get_analog_status_small( power_supply_name, "LineInputVoltage", "V", power_supply, chassis_instance["Readings"] )
                     get_analog_status_small( power_supply_name, "PowerCapacityWatts", "W", power_supply, chassis_instance["Readings"] )
@@ -197,7 +197,7 @@ def get_analog_status_small( name, field, units, object, readings ):
         return
 
     reading = {
-        "Name": name,
+        "Name": name + " " + field,
         "Reading": object[field],
         "Units": units,
         "Health": None,
