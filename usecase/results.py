@@ -57,11 +57,11 @@ class Results(object):
         path = os.path.join(self.output_dir, self.results_filename)
         try:
             with open(path, 'w') as outfile:
-                json.dump(self.results, outfile)
+                json.dump(self.results, outfile, indent=4)
         except OSError as e:
             print("Error writing results file to {}, error: {}".format(path, e), file=sys.stderr)
             print("Printing results to STDOUT instead.", file=sys.stderr)
-            print(json.dumps(self.results))
+            print(json.dumps(self.results, indent=4))
 
     def json_string(self):
         return json.dumps(self.results)

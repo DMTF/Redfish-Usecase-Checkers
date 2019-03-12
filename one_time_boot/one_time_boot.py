@@ -6,12 +6,7 @@
 import argparse
 import sys
 import redfish
-import os
 from time import sleep
-
-sys.path.append(os.path.dirname(os.path.realpath(sys.argv[0])) + '/..')
-
-from usecase.results import Results
 
 
 def push_result_item(target, success, msg, system='Sys'):
@@ -26,33 +21,36 @@ def perform_one_time_boot(systems, context, override_enable, typeboot_target, de
     result_test = []
     service_root = context.get("/redfish/v1/", None)
     if "Systems" not in service_root.dict:
-        print("Systems link not found on service")
-        result_test.append((False, 'Systems link not found on service'))
+        currentMsg = "Systems link not found on service"
+        result_test.append((False, currentMsg, 'Root'))
         return result_test
+
     systems_url = service_root.dict["Systems"]["@odata.id"].rstrip('/')
     systems_list = context.get(service_root.dict["Systems"]["@odata.id"], None)
     if (systems_list.status not in [200, 204]):
-        print('Attempting to grab Systems, but status code not valid', systems_list.status)
-        result_test.append(
-            (False, 'Attempted to grab Systems, but returned status code not valid {}'.format(systems_list.status), 'Root'))
+        currentMsg = 'Attempted to grab Systems, but returned status code not valid {}'.format(systems_list.status)
+        print(currentMsg)
+        result_test.append((False, currentMsg, 'Root'))
         return result_test
+
     member_list = [x['@odata.id'].split('/')[-1]
                    for x in systems_list.dict["Members"]]
-
     if systems is None or not len(systems):
         if len(member_list) == 1:
             systems = [x for x in member_list]
             print('No system specified, defaulting to single system,', member_list)
         else:
             print('No system specified, must specify single system:', member_list)
-            result_test.append(
-                (False, 'User must specify single/multiple target systems', 'Root'))
+            result_test.append((False, 'User must specify single/multiple target systems', 'Root'))
             return result_test
 
     for system in systems:
         if system not in member_list:
             push_result_item(
-                result_test, False, 'System {} not in members of service'.format(system), system)
+                result_test,
+                False,
+                'System {} not in members of service'.format(system),
+                system)
         else:
             push_result_item(
                 result_test,
@@ -69,6 +67,13 @@ def handleBootToSystem(context, systems_url, system, override_enable, typeboot_t
         return (False, 'System {} unable to GET'.format(system))
 
     decoded = sutResponse.dict
+
+    sutBoot = decoded.get('Boot')
+
+    if (sutBoot is None):
+        currentMsg = 'Missing Boot object in System...'
+        return (False, currentMsg)
+
     allowedValue = checkAllowedValue(decoded, typeboot_target)
 
     patch_response = patchBootOverride(
@@ -155,12 +160,14 @@ def checkBootPass(oldOverride, oldType, newOverride, newType):
 
 def checkAllowedValue(json, value):
     sutBoot = json.get('Boot')
-    sutAllowedValues = sutBoot.get(
-        'BootSourceOverrideTarget@Redfish.AllowableValues')
-    return value in sutAllowedValues if sutAllowedValues is not None else False
+    if (sutBoot):
+        sutAllowedValues = sutBoot.get(
+            'BootSourceOverrideTarget@Redfish.AllowableValues')
+        return value in sutAllowedValues if sutAllowedValues is not None else False
+    else:
+        return False
 
-
-def main(argv):
+def main_arg_setup():
     argget = argparse.ArgumentParser(
         description='Simple tool to execute a one-time-boot function against a single or multiple systems')
     argget.add_argument(
@@ -178,20 +185,12 @@ def main(argv):
     argget.add_argument("--password", "-p", type=str,
                         required=True, help="The password for authentication")
     argget.add_argument('--auth', type=str, default='session', help='type of auth (default Session)')
+    return argget
 
-    argget.add_argument('--output_result', default=None, type=str,
-                        help='output directory for test information results.json, if None, do not output')
 
+def main(argv):
+    argget = main_arg_setup()
     args = argget.parse_args()
-
-    output_dir = args.output_result
-
-    argsList = [argv[0]]
-    for name, value in vars(args).items():
-        if name == "password":
-            argsList.append(name + "=" + "********")
-        else:
-            argsList.append(name + "=" + str(value))
 
     # Set up the Redfish object
     redfish_obj = redfish.redfish_client(
@@ -205,18 +204,9 @@ def main(argv):
         otb_results = perform_one_time_boot(
             args.target_systems, redfish_obj, args.override_enable, args.typeboot_target, args.delay)
 
-    # create results object
-    # TODO: this needs to be moved to seperate testing file
     # TODO: another type of user testing error to be caught is enum for onetimeboot (None, Continuous, Once...)
-    results = Results(
-        "One Time Boot", service_root.dict if success else dict())
-    results.add_cmd_line_args(argsList)
-    if output_dir is not None:
-        results.set_output_dir(output_dir)
 
     if not success:
-        results.update_test_results(
-            'ServiceRoot', 1, "ServiceRoot is not available")
         cntSuccess = -1
         print("ServiceRoot is not available")
     else:
@@ -224,14 +214,8 @@ def main(argv):
         for res in otb_results:
             if(res[0]):
                 cntSuccess += 1
-            results.update_test_results(
-                'System Tested', 0 if res[0] else 1, res[1])
-        if (args.output_result):
-            print('{} out of {} systems passed'.format(
-                cntSuccess, len(otb_results)))
-
-    if (args.output_result):
-        results.write_results()
+        print('{} out of {} systems successful action'.format(
+            cntSuccess, len(otb_results)))
 
     redfish_obj.logout()
     return 0 if cntSuccess == len(otb_results) else 1
