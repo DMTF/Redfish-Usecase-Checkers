@@ -38,7 +38,7 @@ $ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass>
 Issue patch request and issue POST action to resetting specific system `sysNumber1` on `127.0.0.1:8000`, with mode Once and target Pxe...
 
 ```
-$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --single /redfish/v1/Systems/sysName1
+$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --target_systems sysNumber1
 ```
 
 ### Power control checker examples

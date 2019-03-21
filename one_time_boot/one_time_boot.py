@@ -3,127 +3,150 @@
 # Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
 
-import requests
 import argparse
 import sys
-import os
-from collections import OrderedDict
+import redfish
 from time import sleep
 
-sys.path.append(os.path.dirname(os.path.realpath(sys.argv[0])) + '/..')
 
-from usecase.results import Results
-
-
-def getValid(res):
-    return res.status_code not in [400, 404] and res.headers.get('content-type') is not None \
-        and 'json' in res.headers.get('content-type')
+def push_result_item(target, success, msg, system='Sys'):
+    print(msg)
+    target.append((success, msg, system))
 
 
-def prefixSSL(b):
-    return ("http://" if b else "https://")
-
-
-def getServiceRoot(ipaddr, auth=None, chkCert=True, nossl=False):
+def perform_one_time_boot(systems, context, override_enable, typeboot_target, delay):
     """
-    Get service root
+    Walks a Redfish service for Systems to perform otb on
     """
-    try:
-        rs = requests.get(prefixSSL(nossl) + ipaddr + '/redfish/v1', auth=auth, verify=chkCert, timeout=20)
-        if getValid(rs):
-            return True, rs.json(object_pairs_hook=OrderedDict)
-    except Exception as ex:
-        sys.stderr.write("Something went wrong: %s" % str(ex))
-    return False, None
+    result_test = []
+    service_root = context.get("/redfish/v1/", None)
+    if "Systems" not in service_root.dict:
+        currentMsg = "Systems link not found on service"
+        result_test.append((False, currentMsg, 'Root'))
+        return result_test
 
+    systems_url = service_root.dict["Systems"]["@odata.id"].rstrip('/')
+    systems_list = context.get(service_root.dict["Systems"]["@odata.id"], None)
+    if (systems_list.status not in [200, 204]):
+        currentMsg = 'Attempted to grab Systems, but returned status code not valid {}'.format(systems_list.status)
+        print(currentMsg)
+        result_test.append((False, currentMsg, 'Root'))
+        return result_test
 
-def getSingleSystem(sutURI, auth=None, chkCert=True, nossl=False):
-    """
-    Get single system
-    """
-    sysName = sutURI.rsplit('/', 1)[-1]
-    try:
-        rs = requests.get(prefixSSL(nossl) + sutURI, auth=auth, verify=chkCert, timeout=20)
-        if getValid(rs):
-            return (True, sysName, sutURI, rs.json())
-    except Exception as ex:
-        sys.stderr.write("Something went wrong: %s" % str(ex))
-    return (False, sysName, sutURI, None)
-
-
-def getSystems(ipaddr, auth=None, chkCert=True, nossl=False):
-    """
-    Get systems from a given IP
-    """
-
-    sutList = list()
-    success = False
-    status_code = -1
-
-    try:
-        r = requests.get(prefixSSL(nossl) + ipaddr + "/redfish/v1/Systems", auth=auth, verify=chkCert, timeout=20)
-        status_code = r.status_code
-        success = getValid(r)
-        if success:
-            decoded = r.json(object_pairs_hook=OrderedDict)
-            members = decoded.get('Members')
-
-            if members is None:
-                sys.stderr.write("Members from /Systems does not exist.")
-                return False, sutList, r.status_code
-
-            for system in members:
-                sysURI = system.get('@odata.id')
-                if sysURI is None:
-                    sys.stderr.write("No @odata.id for this system")
-                    sutList.append((False, '-', '-', None))
-                sutList.append(getSingleSystem(ipaddr + sysURI, auth, chkCert, nossl))
+    member_list = [x['@odata.id'].split('/')[-1]
+                   for x in systems_list.dict["Members"]]
+    if systems is None or not len(systems):
+        if len(member_list) == 1:
+            systems = [x for x in member_list]
+            print('No system specified, defaulting to single system,', member_list)
         else:
-            print(r.text)
-    except Exception as ex:
-        sys.stderr.write("Something went wrong: %s" % str(ex))
-        success = False
-    return success, sutList, status_code
+            print('No system specified, must specify single system:', member_list)
+            result_test.append((False, 'User must specify single/multiple target systems', 'Root'))
+            return result_test
+
+    for system in systems:
+        if system not in member_list:
+            push_result_item(
+                result_test,
+                False,
+                'System {} not in members of service'.format(system),
+                system)
+        else:
+            push_result_item(
+                result_test,
+                *handleBootToSystem(context, systems_url, system, override_enable, typeboot_target, delay),
+                system)
+    return result_test
 
 
-def postBootAction(SUT, typeBoot, auth=None, chkCert=True, nossl=False):
+def handleBootToSystem(context, systems_url, system, override_enable, typeboot_target, delay):
+    sutUri = '{}/{}'.format(systems_url, system)
+    sutResponse = context.get(sutUri, None)
+
+    if(sutResponse.status in [400, 404]):
+        return (False, 'System {} unable to GET'.format(system))
+
+    decoded = sutResponse.dict
+
+    sutBoot = decoded.get('Boot')
+
+    if (sutBoot is None):
+        currentMsg = 'Missing Boot object in System...'
+        return (False, currentMsg)
+
+    allowedValue = checkAllowedValue(decoded, typeboot_target)
+
+    patch_response = patchBootOverride(
+        context, sutUri, override_enable, typeboot_target)
+    status = patch_response.status
+
+    # reget resource
+    sutResponse = context.get(sutUri, None)
+    decoded = sutResponse.dict
+    currentOverride, currentType = decoded['Boot'][
+        'BootSourceOverrideEnabled'], decoded['Boot']['BootSourceOverrideTarget']
+
+    if (override_enable, typeboot_target) != (currentOverride, currentType):
+        if status == 400 and typeboot_target != currentType and not allowedValue:
+            currentMsg = 'Boot change patch not valid, successful Bad Response'
+            return (True, currentMsg)
+        else:
+            currentMsg = 'Boot change patch failed'
+            return (False, currentMsg)
+    else:
+        if typeboot_target == currentType and not allowedValue:
+            currentMsg = 'Boot change patch failure, value is not allowed yet is patched'
+            return (False, currentMsg)
+        else:
+            print('Boot change patch success')
+
+    # commit restart action, requires GracefulRestart
+    postBootAction(context, sutUri, "GracefulRestart")
+    sleeptime = delay
+
+    # loop until sleeptime ends, pass if status is correct
+    # reget resource
+    sutResponse = context.get(sutUri, None)
+    decoded = sutResponse.dict
+    newOverride, newType = decoded['Boot']['BootSourceOverrideEnabled'], decoded['Boot']['BootSourceOverrideTarget']
+    print('Boot status change', newOverride, newType)
+    while sleeptime > 0:
+        sleep(min(sleeptime, 30))
+        # reget resource
+        sutResponse = context.get(sutUri, None)
+        decoded = sutResponse.dict
+        newOverride, newType = decoded['Boot']['BootSourceOverrideEnabled'], decoded['Boot']['BootSourceOverrideTarget']
+        print('Boot status change', newOverride, newType)
+        sleeptime = sleeptime - 30
+
+    successSystem = checkBootPass(
+        currentOverride, currentType, newOverride, newType)
+    currentMsg = 'Boot status change {}'.format(
+        'FAIL' if not successSystem else 'SUCCESS')
+
+    return (successSystem, currentMsg)
+
+
+def postBootAction(context, uri, typeBoot):
     """
     Post boot action to given system
     """
-    payload = {
-                "ResetType": typeBoot
-              }
-    r = requests.post(prefixSSL(nossl) + SUT + "/Actions/ComputerSystem.Reset", auth=auth, verify=chkCert, json=payload,timeout=20)
-    return r
+    payload = {"ResetType": typeBoot}
+    return context.post(uri.rstrip('/') + '/Actions/ComputerSystem.Reset', body=payload)
 
 
-def patchBootOverride(SUT, enable, target, auth=None, chkCert=True, nossl=False):
+def patchBootOverride(context, uri, enable, target):
     """
     Patch boot override details to given system
 
     """
     payload = {
-                 "Boot": {
-                      "BootSourceOverrideEnabled": enable,\
-                      "BootSourceOverrideTarget": target\
-                }
-              }
-    r = requests.patch(prefixSSL(nossl) + SUT, auth=auth, verify=chkCert, json=payload)
-    return r
-
-
-def getBootStatus(SUT, auth=None, chkCert=True, nossl=False):
-    """
-    Patch boot override details to given system
-    """
-    try:
-        r = requests.get(prefixSSL(nossl) + SUT, auth=auth, verify=chkCert, timeout=20)
-        if getValid(r):
-            decoded = r.json(object_pairs_hook=OrderedDict)
-            return decoded['Boot']['BootSourceOverrideEnabled'], decoded['Boot']['BootSourceOverrideTarget']
-    except Exception as ex:
-        sys.stderr.write("Something went wrong: %s" % str(ex))
-    return None, None
+        "Boot": {
+            "BootSourceOverrideEnabled": enable,
+            "BootSourceOverrideTarget": target
+        }
+    }
+    return context.patch(uri, body=payload)
 
 
 def checkBootPass(oldOverride, oldType, newOverride, newType):
@@ -137,151 +160,65 @@ def checkBootPass(oldOverride, oldType, newOverride, newType):
 
 def checkAllowedValue(json, value):
     sutBoot = json.get('Boot')
-    sutAllowedValues = sutBoot.get('BootSourceOverrideTarget@Redfish.AllowableValues')
-    return value in sutAllowedValues if sutAllowedValues is not None else False
-
-
-def verifyBoot(sut, override, typeBoot, auth=None, delay=120, chkCert=True, nossl=False):
-    """
-    Verify the service for one-time boot conformance
-
-    param arg1: sut tuple (status, name, uri, json)
-    param arg2: type of enable [Disable, Once, Continuous]
-    param arg3: boot destination [Pxe, Hdd...]
-    param auth: auth tuple (user,passwd), default None
-    param delay: delay for checking the change, default 120
-    param chkCert: boolean of checking certificate
-    param nossl: boolean for http/s
-    """
-    # get pages
-
-    sutStatus, sutName, sutURI, sutJson = sut
-    auth = auth if not nossl else None
-    print('verifyBoot on {}'.format(prefixSSL(nossl) + sutURI))
-
-    # corral args into dict for positional params
-    argdict = {'auth': auth, 'chkCert': chkCert, 'nossl': nossl}
-
-    print(sutStatus, sutName, sutURI)
-    # if this system succeeded, start verify
-    if sutStatus:
-        allowedValue = checkAllowedValue(sutJson, typeBoot)
-
-        # change boot object, then check if behavior succeeded
-        r = patchBootOverride(sutURI, override, typeBoot, **argdict)
-        print(r.text, r.status_code)
-        sleep(10)
-
-        currentOverride, currentType = getBootStatus(sutURI, **argdict)
-        if (override, typeBoot) != (currentOverride, currentType):
-            if r.status_code == 400 and typeBoot != currentType and not allowedValue:
-                currentMsg = 'Boot change patch not valid, successful Bad Response'
-                print(currentMsg)
-                return True, currentMsg
-            else:
-                currentMsg = 'Boot change patch failed'
-                print(currentMsg)
-                return False, currentMsg
-        else:
-            if typeBoot == currentType and not allowedValue:
-                currentMsg = 'Boot change patch failure, value is not allowed yet is patched'
-                print(currentMsg)
-                return False, currentMsg
-            else:
-                print('Boot change patch success')
-
-        # commit restart action, requires GracefulRestart
-        r = postBootAction(sutURI, "GracefulRestart", **argdict)
-        print(r.text, r.status_code)
-        sleeptime = delay
-
-        # loop until sleeptime ends, pass if status is correct
-        newOverride, newType = getBootStatus(sutURI, **argdict)
-        print('Boot status change', newOverride, newType)
-        while sleeptime > 0:
-            sleep(min(sleeptime, 30))
-            newOverride, newType = getBootStatus(sutURI, **argdict)
-            print('Boot status change', newOverride, newType)
-            sleeptime = sleeptime - 30
-        successSystem = checkBootPass(currentOverride, currentType, newOverride, newType)
-        currentMsg = 'Boot status change {}'.format('FAIL' if not successSystem else 'SUCCESS')
-        print(currentMsg)
+    if (sutBoot):
+        sutAllowedValues = sutBoot.get(
+            'BootSourceOverrideTarget@Redfish.AllowableValues')
+        return value in sutAllowedValues if sutAllowedValues is not None else False
     else:
-        currentMsg = 'Boot system does not exist {}'.format(sutURI)
-        print(currentMsg)
-        successSystem = False
-    return successSystem, currentMsg
+        return False
+
+def main_arg_setup():
+    argget = argparse.ArgumentParser(
+        description='Simple tool to execute a one-time-boot function against a single or multiple systems')
+    argget.add_argument(
+        'rhost', type=str, help='The address of the Redfish service (with scheme)')
+    argget.add_argument('override_enable', type=str,
+                        help='type of boot procedure')
+    argget.add_argument('typeboot_target', type=str, help='what to boot into')
+    argget.add_argument('--target_systems', type=str, nargs='+',
+                        help='uri points to a single system rather than a whole service')
+    argget.add_argument('--delay', type=int, default=120,
+                        help='optional delay time in seconds')
+
+    argget.add_argument("--user", "-u", type=str, required=True,
+                        help="The user name for authentication")
+    argget.add_argument("--password", "-p", type=str,
+                        required=True, help="The password for authentication")
+    argget.add_argument('--auth', type=str, default='session', help='type of auth (default Session)')
+    return argget
 
 
 def main(argv):
-    argget = argparse.ArgumentParser(description='Usecase tool to check conformance to POST Boot action')
-    argget.add_argument('ip', type=str, help='ip to test on')
-    argget.add_argument('override', type=str, help='type of boot procedure')
-    argget.add_argument('type', type=str, help='what to boot into')
-    argget.add_argument('-u', '--user', type=str, help='user for basic auth')
-    argget.add_argument('-p', '--passwd', type=str, help='pass for basic auth')
-    argget.add_argument('--delay', type=int, default=120, help='optional delay time in seconds')
-    argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
-    argget.add_argument('--nossl', action='store_true', help='use http instead of https')
-    argget.add_argument('--single', type=str, help='uri points to a single system rather than a whole service')
-    argget.add_argument('--output', default=None, type=str, help='output directory for results.json')
-
+    argget = main_arg_setup()
     args = argget.parse_args()
 
-    ip = args.ip
-    override = args.override
-    typeBoot = args.type
-    nossl = args.nossl
-    auth = (args.user, args.passwd)
-    nochkcert = args.nochkcert
-    output_dir = args.output
+    # Set up the Redfish object
+    redfish_obj = redfish.redfish_client(
+        base_url=args.rhost, username=args.user, password=args.password, default_prefix="/redfish/v1")
+    redfish_obj.login(auth=args.auth)
 
-    print(ip, override, typeBoot, nochkcert, nossl)
-    argsList = [argv[0]]
-    for name, value in vars(args).items():
-        if name == "passwd":
-            argsList.append(name + "=" + "********")
-        else:
-            argsList.append(name + "=" + str(value))
+    service_root = redfish_obj.get("/redfish/v1/", None)
+    success = service_root.status in [200, 204]
 
-    # create results object
-    # how do I report multiple tested systems??
-    success, service_root = getServiceRoot(ip, auth=auth, chkCert=(not nochkcert), nossl=nossl)
-    results = Results("One Time Boot", service_root if success else dict())
-    results.add_cmd_line_args(argsList)
-    if output_dir is not None:
-        results.set_output_dir(output_dir)
+    if success:
+        otb_results = perform_one_time_boot(
+            args.target_systems, redfish_obj, args.override_enable, args.typeboot_target, args.delay)
+
+    # TODO: another type of user testing error to be caught is enum for onetimeboot (None, Continuous, Once...)
 
     if not success:
-        sutList, rc, msg = ['None'], 1, "ServiceRoot not available"
-        results.update_test_results(sutList[0], rc, msg)
-        cntSuccess = 0
+        cntSuccess = -1
         print("ServiceRoot is not available")
     else:
-        # corral args into dict for positional params
-        argdict = {'auth': auth, 'chkCert': not nochkcert, 'nossl': nossl}
-        # depending on parameter, gather single system or all systems
-        if args.single is not None:
-            success, sutList, rcode = True, [getSingleSystem(ip + args.single, **argdict)], '-'
-        else:
-            success, sutList, rcode = getSystems(ip, **argdict)
-
-        # get one time options
-        print('{}, collected {} systems, code {}'.format('FAIL' if not success else 'SUCCESS', len(sutList), rcode))
         cntSuccess = 0
+        for res in otb_results:
+            if(res[0]):
+                cntSuccess += 1
+        print('{} out of {} systems successful action'.format(
+            cntSuccess, len(otb_results)))
 
-        for sut in sutList:
-            rcbool, msg = verifyBoot(sut, override, typeBoot, auth=auth, delay=args.delay, chkCert=(not nochkcert), nossl=nossl)
-            rc = 0 if rcbool else 1
-            cntSuccess += 1 if rc == 0 else 0
-            results.update_test_results(sut[1], rc, msg)
-
-        msg = '{} out of {} systems passed'.format(cntSuccess, len(sutList))
-
-    # validator = SchemaValidation(rft, service_root, raw_main, results)
-    results.write_results()
-
-    return 0 if cntSuccess == len(sutList) else 1
+    redfish_obj.logout()
+    return 0 if cntSuccess == len(otb_results) else 1
 
 
 if __name__ == '__main__':
