@@ -41,42 +41,30 @@ Issue patch request and issue POST action to resetting specific system `sysNumbe
 $ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --target_systems sysNumber1
 ```
 
+For contact insecure or non-session based identification:
+
+```
+$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --Secure Never --auth <None, Session, Basic>
+```
+
 ### Power control checker examples
 
 Issue reset command `GracefulRestart` to system with Id `437XR1138R2` on host `127.0.0.1:8000` with no https security:
 
 ```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Never -I 437XR1138R2 GracefulRestart
+$ python3 power_control.py 127.0.0.1:8000 --shutdown_type GracefulRestart -u <user> -p <password> -S Never --target_systems 437XR1138R2 
 ```
 
-Issue reset command `On` to the first system in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
+(Unimplemented) Issue reset command `ForceOff` to system with AssatTag value `12345` on host `127.0.0.1:8000` with https security always enabled:
 
 ```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -F On
-```
-
-Issue reset command `On` to the only system in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -1 On
-```
-
-Issue reset command `Nmi` to system at link `/redfish/v1/Systems/System.Embedded.1` on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -L /redfish/v1/Systems/System.Embedded.1 Nmi
-```
-
-Issue reset command `ForceOff` to system with AssatTag value `12345` on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -M AssetTag:12345 ForceOff
+$ python3 power_control.py 127.0.0.1:8000 -u <user> -p <password> -S Always -M AssetTag:12345 ForceOff
 ```
 
 Issue reset command `GracefulShutdown` to all systems in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
 
 ```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always --all GracefulShutdown
+$ python3 power_control.py 127.0.0.1:8000 --shutdown_type GracefulShutdown -u <user> -p <password> -S Always --target_systems All 
 ```
 
 ### Account management checker examples

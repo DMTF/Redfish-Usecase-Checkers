@@ -1,11 +1,12 @@
-
 # Copyright Notice:
 # Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
 
 import argparse
-import sys
 import redfish
+import sys
+import traceback
+
 from time import sleep
 
 
@@ -43,6 +44,9 @@ def perform_one_time_boot(systems, context, override_enable, typeboot_target, de
             print('No system specified, must specify single system:', member_list)
             result_test.append((False, 'User must specify single/multiple target systems', 'Root'))
             return result_test
+
+    if 'All' in systems:
+        systems = member_list
 
     for system in systems:
         if system not in member_list:
@@ -106,6 +110,7 @@ def handleBootToSystem(context, systems_url, system, override_enable, typeboot_t
 
     # loop until sleeptime ends, pass if status is correct
     # reget resource
+    # TODO: replace with 202 task if available
     sutResponse = context.get(sutUri, None)
     decoded = sutResponse.dict
     newOverride, newType = decoded['Boot']['BootSourceOverrideEnabled'], decoded['Boot']['BootSourceOverrideTarget']
@@ -167,24 +172,32 @@ def checkAllowedValue(json, value):
     else:
         return False
 
+
 def main_arg_setup():
     argget = argparse.ArgumentParser(
         description='Simple tool to execute a one-time-boot function against a single or multiple systems')
-    argget.add_argument(
-        'rhost', type=str, help='The address of the Redfish service (with scheme)')
+    argget.add_argument('rhost', type=str,
+            help='The address of the Redfish service (no scheme)')
     argget.add_argument('override_enable', type=str,
-                        help='type of boot procedure')
-    argget.add_argument('typeboot_target', type=str, help='what to boot into')
+            help='type of boot procedure')
+    argget.add_argument('typeboot_target', type=str,
+            help='what to boot into')
     argget.add_argument('--target_systems', type=str, nargs='+',
-                        help='uri points to a single system rather than a whole service')
+            help='A list of systems to target i.e System1 System2 System3')
     argget.add_argument('--delay', type=int, default=120,
-                        help='optional delay time in seconds')
+            help='optional delay time in seconds to determine success')
 
-    argget.add_argument("--user", "-u", type=str, required=True,
-                        help="The user name for authentication")
+    argget.add_argument("--Secure", "-S", type=str, default="Always",
+            help="When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)")
+    argget.add_argument("--user", "-u", type=str,
+            required=True,
+            help="The user name for authentication")
     argget.add_argument("--password", "-p", type=str,
-                        required=True, help="The password for authentication")
-    argget.add_argument('--auth', type=str, default='session', help='type of auth (default Session)')
+            required=True,
+            help="The password for authentication")
+    argget.add_argument('--auth', type=str, default='session',
+            help='type of auth of either Session, Basic, None (default Session)')
+
     return argget
 
 
@@ -193,9 +206,23 @@ def main(argv):
     args = argget.parse_args()
 
     # Set up the Redfish object
-    redfish_obj = redfish.redfish_client(
-        base_url=args.rhost, username=args.user, password=args.password, default_prefix="/redfish/v1")
-    redfish_obj.login(auth=args.auth)
+    if ('://' in args.rhost):
+        print('Argument rhost should not contain scheme http/https')
+
+    base_url = "https://" + args.rhost
+    if args.Secure == "Never":
+        base_url = "http://" + args.rhost
+
+    print('Contacting {}'.format(base_url))
+
+    try:
+        redfish_obj = redfish.redfish_client(
+            base_url=base_url, username=args.user, password=args.password, default_prefix="/redfish/v1")
+        redfish_obj.login(auth=args.auth)
+    except Exception as e:
+        print('Exception has occurred when creating redfish object')
+        print(traceback.format_exc(2))
+        return 1
 
     service_root = redfish_obj.get("/redfish/v1/", None)
     success = service_root.status in [200, 204]

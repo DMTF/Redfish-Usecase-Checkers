@@ -2,72 +2,29 @@
 # Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
 
-import getopt
-import logging
-import re
 import sys
-
-# noinspection PyUnresolvedReferences
-import toolspath
-from redfishtool import ServiceRoot
-from redfishtool import Systems
-from redfishtool import redfishtoolTransport
-from usecase.results import Results
-from usecase.validation import SchemaValidation
+import argparse
+import redfish
+import traceback
+from time import sleep
 
 
-def run_systems_operation(rft, systems):
-    """
-    Send Systems operation to target host
-    """
-    return systems.runOperation(rft)
+def push_result_item(target, success, msg, system='Sys'):
+    print(msg)
+    target.append((success, msg, system))
 
 
-def setup_systems_operation(args, rft, systems):
-    """
-    Setup the args for the operation in the rft and systems instances
-    """
-    rft.subcommand = args[0]
-    rft.subcommandArgv = args
-    rft.printVerbose(5, "power_control:setup_systems_operation: args: {}".format(args))
-    if len(args) < 2:
-        if rft.IdOptnCount == 0:
-            systems.operation = "collection"
-        else:
-            systems.operation = "get"
-        systems.args = None
-    else:
-        systems.operation = args[1]
-        systems.args = args[1:]  # now args points to the 1st argument
-        systems.argnum = len(systems.args)
-
-
-def setup_and_run_systems_operation(args, rft, systems, reset_type):
-    """
-    Setup the operation, run it, print the results and return the power state
-    """
-    setup_systems_operation(args, rft, systems)
-    rc, r, j, d = run_systems_operation(rft, systems)
-    if len(args) == 1:
-        command = "get"
-    else:
-        command = reset_type
-    rft.printVerbose(1, "power_control:setup_and_run_systems_operation: command = {}, rc = {}, response = {}"
-                        ", power_state = {}".format(command, rc, r, get_power_state(j, d)))
-    return rc, r, j, d
-
-
-def get_power_state(json_data, data):
+def get_power_state(json_data):
     """
     Retrieve "PowerState" value from data if present
     """
-    if json_data is True and data is not None and "PowerState" in data:
-        return data["PowerState"]
+    if json_data is not None and "PowerState" in json_data:
+        return json_data["PowerState"]
     else:
         return "<n/a>"
 
 
-def validate_power_state(rft, reset_type, before, after):
+def validate_power_state(reset_type, before, after):
     """
     Verify the power state is correct after issuing the given reset command
     """
@@ -75,163 +32,181 @@ def validate_power_state(rft, reset_type, before, after):
                    "Nmi": "On", "GracefulRestart": "On", "ForceOn": "On", "PushPowerButton": "On"}
     if before == "On":
         state_after["PushPowerButton"] = "Off"
-    if after == state_after[reset_type]:
-        rft.printVerbose(1, "power_control:validate_power_state: Reset command {} successful".format(reset_type))
-        return 0
+    if after == state_after.get(reset_type):
+        return True
     else:
-        rft.printVerbose(1, "power_control:validate_power_state: Power state after command {} was {}, expected {}"
-                         .format(reset_type, after, state_after[reset_type]))
-        return 1
+        return False
 
 
-def validate_reset_command(rft, systems, validator, reset_type):
+def perform_power_control(systems, context, reset_type, delay):
     """
-    Issue command to perform the reset action and schema validate the response data (if any)
+    Walks a Redfish service for Systems to perform otb on
     """
-    args = ["Systems", "reset", reset_type]
-    rc, r, j, d = setup_and_run_systems_operation(args, rft, systems, reset_type)
-    msg = None
-    if rc != 0:
-        msg = "Error issuing reset command '{}', return code = {}".format(reset_type, rc)
-    if rc == 0 and j is True and d is not None:
-        schema = validator.get_json_schema(d)
-        rc, msg = validator.validate_json(d, schema)
-    return rc, msg
+    result_test = []
+    service_root = context.get("/redfish/v1/", None)
+    if "Systems" not in service_root.dict:
+        currentMsg = "Systems link not found on service"
+        result_test.append((False, currentMsg, 'Root'))
+        return result_test
+
+    systems_url = service_root.dict["Systems"]["@odata.id"].rstrip('/')
+    systems_list = context.get(service_root.dict["Systems"]["@odata.id"], None)
+    if (systems_list.status not in [200, 204]):
+        currentMsg = 'Attempted to grab Systems, but returned status code not valid {}'.format(systems_list.status)
+        print(currentMsg)
+        result_test.append((False, currentMsg, 'Root'))
+        return result_test
+
+    member_list = [x['@odata.id'].split('/')[-1]
+                   for x in systems_list.dict["Members"]]
+    if systems is None or not len(systems):
+        if len(member_list) == 1:
+            systems = [x for x in member_list]
+            print('No system specified, defaulting to single system,', member_list)
+        else:
+            print('No system specified, must specify single system:', member_list)
+            result_test.append((False, 'User must specify single/multiple target systems', 'Root'))
+            return result_test
+
+    if 'All' in systems:
+        systems = member_list
+
+    for system in systems:
+        if system not in member_list:
+            push_result_item(
+                result_test,
+                False,
+                'System {} not in members of service'.format(system),
+                system)
+        else:
+            push_result_item(
+                result_test,
+                *handlePowControlToSystem(context, systems_url, system, reset_type, delay),
+                system)
+    return result_test
 
 
-def get_service_root(rft, root):
-    """
-    Get Service Root information
-    """
-    rc, r, j, d = root.getServiceRoot(rft)
-    rft.printVerbose(1, "power_control:get_service_root: rc = {}, response = {}, json_data = {}, data = {}"
-                     .format(rc, r, j, d))
-    return d
+def handlePowControlToSystem(context, systems_url, system, reset_type="GracefulRestart", delay=30):
+    sutUri = '{}/{}'.format(systems_url, system)
+    sutResponse = context.get(sutUri, None)
+
+    if(sutResponse.status in [400, 404]):
+        return (False, 'System {} unable to GET'.format(system))
+
+    decoded = sutResponse.dict
+
+    currentValue = get_power_state(decoded)
+
+    # commit restart action, requires GracefulRestart
+    postBootAction(context, sutUri, reset_type)
+    sleeptime = delay
+
+    # loop until sleeptime ends, pass if status is correct
+    # reget resource
+    # TODO: replace with 202 task if available
+    sutResponse = context.get(sutUri, None)
+    decoded = sutResponse.dict
+    newValue = get_power_state(decoded)
+    print('Boot status change', currentValue, newValue)
+    while sleeptime > 0:
+        sleep(min(sleeptime, 30))
+        # reget resource
+        sutResponse = context.get(sutUri, None)
+        newValue = get_power_state(decoded)
+        print('Boot status change', currentValue, newValue)
+        sleeptime = sleeptime - 30
+
+    successSystem = validate_power_state(reset_type, currentValue, newValue)
+    currentMsg = 'Boot status change {}'.format(
+        'FAIL' if not successSystem else 'SUCCESS')
+
+    return (successSystem, currentMsg)
 
 
-def display_usage(pgm_name):
+def postBootAction(context, uri, typeBoot):
     """
-    Display the program usage statement
+    Post boot action to given system
     """
-    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
-    print("       [-I <Id>] [-M <prop>:<val>] [-L <Link>] [-F] [-1] [-a] <reset_type>")
+    payload = {"ResetType": typeBoot}
+    return context.post(uri.rstrip('/') + '/Actions/ComputerSystem.Reset', body=payload)
 
 
-def log_results(results):
-    """
-    Log the results of the power control validation run
-    """
-    results.write_results()
+def main_arg_setup():
+    argget = argparse.ArgumentParser(
+        description='Simple tool to execute a one-time-boot function against a single or multiple systems')
+    argget.add_argument('rhost', type=str,
+            help='The address of the Redfish service (with scheme)')
+    argget.add_argument('--shutdown_type', type=str, default='GracefulRestart',
+            help='type of shutdown')
+    argget.add_argument('--target_systems', type=str, nargs='+',
+            help='A list of systems to target i.e System1 System2 System3')
+    argget.add_argument('--delay', type=int, default=120,
+            help='optional delay time in seconds to determine success')
+
+    argget.add_argument("--Secure", "-S", type=str, default="Always",
+            help="When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)")
+    argget.add_argument("--user", "-u", type=str,
+            required=True,
+            help="The user name for authentication")
+    argget.add_argument("--password", "-p", type=str,
+            required=True,
+            help="The password for authentication")
+    argget.add_argument('--auth', type=str, default='session',
+            help='type of auth of either Session, Basic, None (default Session)')
+    return argget
 
 
 def main(argv):
-    """
-    main
-    """
-    rft = redfishtoolTransport.RfTransport()
-    systems = Systems.RfSystemsMain()
-    root = ServiceRoot.RfServiceRoot()
-    output_dir = None
+    argget = main_arg_setup()
+    args = argget.parse_args()
+
+    # Set up the Redfish object
+    if ('://' in args.rhost):
+        print('Argument rhost should not contain scheme http/https')
+
+    base_url = "https://" + args.rhost
+    if args.Secure == "Never":
+        base_url = "http://" + args.rhost
+
+    print('Contacting {}'.format(base_url))
 
     try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:M:F1L:aS:",
-                                       ["verbose", "user=", "password=", "rhost=", "directory=", "Id=", "Match=",
-                                        "First", "One", "Link=", "all", "Secure="])
-    except getopt.GetoptError:
-        rft.printErr("Error parsing options")
-        display_usage(argv[0])
-        sys.exit(1)
+        redfish_obj = redfish.redfish_client(
+            base_url=base_url, username=args.user, password=args.password, default_prefix="/redfish/v1")
+        redfish_obj.login(auth=args.auth)
+    except Exception as e:
+        print('Exception has occurred when creating redfish object')
+        print(traceback.format_exc(2))
+        return 1
 
-    for index, (opt, arg) in enumerate(opts):
-        if opt in ("-v", "--verbose"):
-            rft.verbose = min((rft.verbose + 1), 5)
-        elif opt in ("-d", "--directory"):
-            output_dir = arg
-        elif opt in ("-r", "--rhost"):
-            rft.rhost = arg
-        elif opt in ("-u", "--user"):
-            rft.user = arg
-        elif opt in ("-p", "--password"):
-            rft.password = arg
-            # mask password, which will be logged in Results
-            opts[index] = (opt, "********")
-        elif opt in ("-I", "--Id"):
-            rft.Id = rft.matchValue = arg
-            rft.gotIdOptn = rft.gotMatchOptn = rft.firstOptn = True
-            rft.IdOptnCount += 1
-            rft.matchProp = "Id"
-        elif opt in ("-M", "--Match"):
-            # arg is of the form: "<prop>:<value>"
-            match_prop_pattern = "^(.+):(.+)$"
-            match_prop_match = re.search(match_prop_pattern, arg)
-            if match_prop_match:
-                rft.matchProp = match_prop_match.group(1)
-                rft.matchValue = match_prop_match.group(2)
-                rft.IdOptnCount += 1
-                rft.gotMatchOptn = True
-            else:
-                rft.printErr("Invalid --Match= option format: {}".format(arg))
-                rft.printErr("     Expect --Match=<prop>:<value> Ex -M AssetTag:5555, --Match=AssetTag:5555",
-                             noprog=True)
-                sys.exit(1)
-        elif opt in ("-F", "--First"):
-            rft.firstOptn = True
-            rft.IdOptnCount += 1
-        elif opt in ("-1", "--One"):
-            rft.oneOptn = True
-            rft.IdOptnCount += 1
-        elif opt in ("-L", "--Link"):
-            rft.Link = arg
-            rft.gotIdOptn = True
-            rft.IdOptnCount += 1
-        elif opt in ("-a", "--all"):
-            rft.allOptn = True
-            rft.IdLevel2OptnCount += 1
-        elif opt in ("-S", "--Secure"):  # Specify when to use HTTPS
-            rft.secure = arg
-            if rft.secure not in rft.secureValidValues:
-                rft.printErr("Invalid --Secure option: {}".format(rft.secure))
-                rft.printErr("     Valid values: {}".format(rft.secureValidValues), noprog=True)
-                sys.exit(1)
+    service_root = redfish_obj.get("/redfish/v1/", None)
+    success = service_root.status in [200, 204]
 
-    # check for invalid option combinations
-    if rft.IdOptnCount > 1:
-        if rft.IdOptnCount > 2 or (not (rft.firstOptn and rft.gotMatchOptn)):
-            rft.printErr("Syntax error: invalid combination of -I, -M, -1, -F, -L options.")
-            rft.printErr("    Valid combinations: -I | -M | -1 | -F | -L | -M -F", noprog=True)
-            display_usage(argv[0])
-            sys.exit(1)
+    pc_results = []
 
-    if not args or len(args) > 1:
-        rft.printErr("Must supply exactly one reset_type argument")
-        display_usage(argv[0])
-        sys.exit(1)
+    if success:
+        pc_results = perform_power_control(
+            args.target_systems, redfish_obj, args.shutdown_type, args.delay)
 
-    reset_type = args[0]
+    # TODO: another type of user testing error to be caught is enum for onetimeboot (None, Continuous, Once...)
 
-    # Set up logging
-    log_level = logging.WARNING
-    if 0 < rft.verbose < 3:
-        log_level = logging.INFO
-    elif rft.verbose >= 3:
-        log_level = logging.DEBUG
-    logging.basicConfig(stream=sys.stderr, level=log_level)
+    if not success:
+        cntSuccess = -1
+        print("ServiceRoot is not available")
+    else:
+        cntSuccess = 0
+        for res in pc_results:
+            if(res[0]):
+                cntSuccess += 1
+        print('{} out of {} systems successful action'.format(
+            cntSuccess, len(pc_results)))
 
-    service_root = get_service_root(rft, root)
-    results = Results("Power Control Checker", service_root)
-    if output_dir is not None:
-        results.set_output_dir(output_dir)
-    args_list = [argv[0]] + [v for opt in opts for v in opt] + args
-    results.add_cmd_line_args(args_list)
-    auth = (rft.user, rft.password)
-    nossl = True if rft.secure == "Never" else False
-    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, verify=False, nossl=nossl)
-    rc, msg = validate_reset_command(rft, systems, validator, reset_type)
-    results.update_test_results(reset_type, rc, msg)
+    redfish_obj.logout()
+    return 0 if cntSuccess == len(pc_results) else 1
 
-    log_results(results)
-    exit(results.get_return_code())
 
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
 
 if __name__ == "__main__":
     main(sys.argv)

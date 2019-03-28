@@ -1,5 +1,9 @@
+# Copyright Notice:
+# Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
 
 import redfish
+import traceback
 import sys
 import os
 from one_time_boot import perform_one_time_boot, main_arg_setup
@@ -12,7 +16,7 @@ from usecase.results import Results
 def main(argv):
     argget = main_arg_setup()
 
-    argget.add_argument('--output_result', default='./results.json', type=str,
+    argget.add_argument('--output_result', default='./', type=str,
                         help='output directory for test information results.json')
 
     args = argget.parse_args()
@@ -27,9 +31,18 @@ def main(argv):
             argsList.append(name + "=" + str(value))
 
     # Set up the Redfish object
-    redfish_obj = redfish.redfish_client(
-        base_url=args.rhost, username=args.user, password=args.password, default_prefix="/redfish/v1")
-    redfish_obj.login(auth=args.auth)
+    base_url = "https://" + args.rhost
+    if args.Secure == "Never":
+        base_url = "http://" + args.rhost
+
+    try:
+        redfish_obj = redfish.redfish_client(
+            base_url=base_url, username=args.user, password=args.password, default_prefix="/redfish/v1")
+        redfish_obj.login(auth=args.auth)
+    except Exception as e:
+        print('Exception has occurred when creating redfish object')
+        print(traceback.format_exc(2))
+        return 1
 
     service_root = redfish_obj.get("/redfish/v1/", None)
     success = service_root.status in [200, 204]
