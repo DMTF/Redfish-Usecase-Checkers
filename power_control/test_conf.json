@@ -1,6 +1,5 @@
 {
   "test": {
-    "command": "$interpreter power_control_check.py $target_system --shutdown_type GracefulRestart -u $username -p $password -S $https -d $output_subdir --target_systems $system_id",
-    "wait_seconds_after": 180
+    "command": "$interpreter power_control_check.py $target_system --shutdown_type GracefulRestart -u $username -p $password -S $https --output_result $output_subdir --target_systems $system_id"
   }
 }
