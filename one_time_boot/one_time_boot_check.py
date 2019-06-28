@@ -74,7 +74,7 @@ if __name__ == '__main__':
             else:
                 test_path = "Pxe"
             if test_path is None:
-                print( "{} does not support PXE or USB boot override".format( system, test_path ) )
+                print( "{} does not support PXE or USB boot override".format( system ) )
                 results.update_test_results( "Boot Check", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
                 continue
             results.update_test_results( "Boot Check", 0, None )
