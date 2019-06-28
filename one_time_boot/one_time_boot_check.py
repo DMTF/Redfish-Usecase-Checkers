@@ -1,72 +1,115 @@
+#! /usr/bin/python3
+# Copyright Notice:
+# Copyright 2019 DMTF. All rights reserved.
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
+
+"""
+One Time Boot Usecase Test
+
+File : one_time_boot_check.py
+
+Brief : This file contains the definitions and functionalities for performing
+        the usecase test for performing a one time boot
+"""
+
+import argparse
+import sys
+import time
 
 import redfish
-import sys
-import os
-from one_time_boot import perform_one_time_boot, main_arg_setup
+import redfish_utilities
 
-sys.path.append(os.path.dirname(os.path.realpath(sys.argv[0])) + '/..')
-
+import toolspath
 from usecase.results import Results
 
+if __name__ == '__main__':
 
-def main(argv):
-    argget = main_arg_setup()
-
-    argget.add_argument('--output_result', default='./results.json', type=str,
-                        help='output directory for test information results.json')
-
+    # Get the input arguments
+    argget = argparse.ArgumentParser( description = "Usecase checker for one time boot" )
+    argget.add_argument( "--user", "-u", type = str, required = True, help = "The user name for authentication" )
+    argget.add_argument( "--password", "-p",  type = str, required = True, help = "The password for authentication" )
+    argget.add_argument( "--rhost", "-r", type = str, required = True, help = "The address of the Redfish service" )
+    argget.add_argument( "--Secure", "-S", type = str, default = "Always", help = "When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)" )
+    argget.add_argument( "--directory", "-d", type = str, default = None, help = "Output directory for results.json" )
     args = argget.parse_args()
 
-    output_dir = args.output_result
-
-    argsList = [argv[0]]
-    for name, value in vars(args).items():
-        if name == "password":
-            argsList.append(name + "=" + "********")
-        else:
-            argsList.append(name + "=" + str(value))
-
     # Set up the Redfish object
-    redfish_obj = redfish.redfish_client(
-        base_url=args.rhost, username=args.user, password=args.password, default_prefix="/redfish/v1")
-    redfish_obj.login(auth=args.auth)
+    base_url = "https://" + args.rhost
+    if args.Secure == "Never":
+        base_url = "http://" + args.rhost
+    with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
+        redfish_obj.login( auth = "session" )
 
-    service_root = redfish_obj.get("/redfish/v1/", None)
-    success = service_root.status in [200, 204]
+        # Create the results object
+        service_root = redfish_obj.get( "/redfish/v1/", None )
+        results = Results( "One Time Boot", service_root.dict )
+        if args.directory is not None:
+            results.set_output_dir( args.directory )
 
-    if success:
-        otb_results = perform_one_time_boot(
-            args.target_systems, redfish_obj, args.override_enable, args.typeboot_target, args.delay)
+        # Get the available systems
+        test_systems = []
+        system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"], None )
+        for member in system_col.dict["Members"]:
+            system = redfish_obj.get( member["@odata.id"], None )
+            test_systems.append( system.dict["Id"] )
 
-    # create results object
-    results = Results(
-        "One Time Boot", service_root.dict if success else dict())
-    results.add_cmd_line_args(argsList)
-    if output_dir is not None:
-        results.set_output_dir(output_dir)
+        # Check that the system list is not empty
+        system_count = len( test_systems )
+        print( "Found {} system instances".format( system_count ) )
+        if system_count == 0:
+            results.update_test_results( "System Count", 1, "No system instances were found" )
+        else:
+            results.update_test_results( "System Count", 0, None )
 
-    if not success:
-        results.update_test_results(
-            'ServiceRoot', 1, "ServiceRoot is not available")
-        cntSuccess = -1
-        print("ServiceRoot is not available")
-    else:
-        cntSuccess = 0
-        for res in otb_results:
-            if(res[0]):
-                cntSuccess += 1
-            results.update_test_results(
-                'System Tested', 0 if res[0] else 1, res[1])
-        if (args.output_result):
-            print('{} out of {} systems passed'.format(
-                cntSuccess, len(otb_results)))
+        # Perform a test on each system found
+        for system in test_systems:
+            # See if PXE or USB are allowable
+            test_path = None
+            boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
+            if "BootSourceOverrideTarget@Redfish.AllowableValues" in boot_obj:
+                if "Pxe" in boot_obj["BootSourceOverrideTarget@Redfish.AllowableValues"]:
+                    test_path = "Pxe"
+                elif "Usb" in boot_obj["BootSourceOverrideTarget@Redfish.AllowableValues"]:
+                    test_path = "Usb"
+            else:
+                test_path = "Pxe"
+            if test_path is None:
+                print( "{} does not support PXE or USB boot override".format( system, test_path ) )
+                results.update_test_results( "Boot Check", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
+                continue
+            results.update_test_results( "Boot Check", 0, None )
 
-    if (args.output_result):
-        results.write_results()
+            # Set the boot object and verify the setting was applied
+            print( "Setting {} to boot from {}".format( system, test_path ) )
+            redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = test_path, ov_enabled = "Once" )
+            boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
+            if boot_obj["BootSourceOverrideTarget"] != test_path and boot_obj["BootSourceOverrideEnabled"] != "Once":
+                print( "Failed to set {} to boot from {}!".format( system, test_path ) )
+                results.update_test_results( "Boot Set", 1, "{} was not set to boot from {}".format( system, test_path ) )
+            else:
+                results.update_test_results( "Boot Set", 0, None )
 
-    redfish_obj.logout()
-    return 0 if cntSuccess == len(otb_results) else 1
+                # Reset the system
+                print( "Resetting {}".format( system ) )
+                response = redfish_utilities.system_reset( redfish_obj, system )
+                response = redfish_utilities.poll_task_monitor( redfish_obj, response )
+                redfish_utilities.verify_response( response )
 
+                # Monitor the system to go back to None
+                print( "Monitoring boot progress for {}...".format( system ) )
+                for i in range( 0, 60 ):
+                    time.sleep( 1 )
+                    boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
+                    if boot_obj["BootSourceOverrideTarget"] == "None":
+                        break
+                if boot_obj["BootSourceOverrideTarget"] == "None":
+                    print( "{} booted from {}!".format( system, test_path ) )
+                    results.update_test_results( "Boot Verify", 0, None )
+                else:
+                    print( "{} failed to boot from {}!".format( system, test_path ) )
+                    results.update_test_results( "Boot Verify", 1, "{} did not reset back to 'None'".format( system ) )
 
-if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    # Save the results
+    results.write_results()
+
+    sys.exit( results.get_return_code() )

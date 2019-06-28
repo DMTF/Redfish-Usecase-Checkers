@@ -13,11 +13,12 @@ Brief : This file contains the definitions and functionalities for performing
 """
 
 import argparse
-import redfish
 import sys
 
+import redfish
+import redfish_utilities
+
 import toolspath
-import sensor_list
 from usecase.results import Results
 
 if __name__ == '__main__':
@@ -35,23 +36,20 @@ if __name__ == '__main__':
     base_url = "https://" + args.rhost
     if args.Secure == "Never":
         base_url = "http://" + args.rhost
-    redfish_obj = redfish.redfish_client( base_url = base_url, username = args.user, password = args.password, default_prefix = "/redfish/v1" )
-    redfish_obj.login( auth = "session" )
+    with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
+        redfish_obj.login( auth = "session" )
 
-    # Create the results object
-    service_root = redfish_obj.get( "/redfish/v1/", None )
-    results = Results( "Power/Thermal Info", service_root.dict )
-    if args.directory is not None:
-        results.set_output_dir( args.directory )
+        # Create the results object
+        service_root = redfish_obj.get( "/redfish/v1/", None )
+        results = Results( "Power/Thermal Info", service_root.dict )
+        if args.directory is not None:
+            results.set_output_dir( args.directory )
 
-    # Fetch the sensors
-    sensors = sensor_list.get_sensors( redfish_obj )
-
-    # Log out
-    redfish_obj.logout()
+        # Fetch the sensors
+        sensors = redfish_utilities.get_sensors( redfish_obj )
 
     # Print the data received
-    sensor_list.print_sensors( sensors )
+    redfish_utilities.print_sensors( sensors )
 
     # Test 1: Check that the chassis list is not empty
     chassis_count = len( sensors )

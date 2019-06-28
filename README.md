@@ -16,11 +16,13 @@ Some of the checker tools leverage modules from [DMTF/Redfishtool](https://githu
 
 ## Prerequisites
 
-Install `jsonschema` and `redfishtool`:
+Install `jsonschema`, `redfishtool`, `redfish`, and `redfish_utilities`:
 
 ```
 pip install jsonschema
 pip install redfishtool
+pip install redfish
+pip install redfish_utilities
 ```
 
 ## Example Usage
