@@ -31,16 +31,18 @@ Each tool may be ran with -h, for verbose help on parameters.
 
 ### One time boot checker examples
 
-Issue patch request and issue POST action to resetting host `127.0.0.1:8000`, with mode Once and target Pxe, with user and pass
+Set all systems found at `127.0.0.1:8000` the boot override set to either PXE or USB, and resets the system to see the boot override is performed.
 
 ```
-$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass>
+$ python3 one_time_boot_check.py -r 127.0.0.1:8000 -u <user> -p <pass>
 ```
 
-Issue patch request and issue POST action to resetting specific system `sysNumber1` on `127.0.0.1:8000`, with mode Once and target Pxe...
+### Power/thermal info checker examples
+
+Finds all chassis instances at `127.0.0.1:8000` and collects their respective power and thermal information.
 
 ```
-$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --target_systems sysNumber1
+$ python3 power_thermal_test.py -r 127.0.0.1:8000 -u <user> -p <pass>
 ```
 
 ### Power control checker examples
