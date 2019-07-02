@@ -38,8 +38,6 @@ if __name__ == '__main__':
     if args.Secure == "Never":
         base_url = "http://" + args.rhost
     with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
-        redfish_obj.login( auth = "session" )
-
         # Create the results object
         service_root = redfish_obj.get( "/redfish/v1/", None )
         results = Results( "One Time Boot", service_root.dict )
