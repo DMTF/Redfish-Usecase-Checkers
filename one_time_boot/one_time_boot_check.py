@@ -39,16 +39,16 @@ if __name__ == '__main__':
         base_url = "http://" + args.rhost
     with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
         # Create the results object
-        service_root = redfish_obj.get( "/redfish/v1/", None )
+        service_root = redfish_obj.get( "/redfish/v1/" )
         results = Results( "One Time Boot", service_root.dict )
         if args.directory is not None:
             results.set_output_dir( args.directory )
 
         # Get the available systems
         test_systems = []
-        system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"], None )
+        system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"] )
         for member in system_col.dict["Members"]:
-            system = redfish_obj.get( member["@odata.id"], None )
+            system = redfish_obj.get( member["@odata.id"] )
             test_systems.append( system.dict["Id"] )
 
         # Check that the system list is not empty

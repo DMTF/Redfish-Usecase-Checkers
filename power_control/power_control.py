@@ -38,16 +38,16 @@ if __name__ == '__main__':
         base_url = "http://" + args.rhost
     with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
         # Create the results object
-        service_root = redfish_obj.get( "/redfish/v1/", None )
+        service_root = redfish_obj.get( "/redfish/v1/" )
         results = Results( "Power Control", service_root.dict )
         if args.directory is not None:
             results.set_output_dir( args.directory )
 
         # Get the available systems
         test_systems = []
-        system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"], None )
+        system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"] )
         for member in system_col.dict["Members"]:
-            system = redfish_obj.get( member["@odata.id"], None )
+            system = redfish_obj.get( member["@odata.id"] )
             test_systems.append( system.dict["Id"] )
 
         # Check that the system list is not empty
@@ -84,7 +84,7 @@ if __name__ == '__main__':
                 exp_power_state = "On"
                 if reset_type == "ForceOff" or reset_type == "GracefulShutdown":
                     exp_power_state = "Off"
-                system_info = redfish_obj.get( "/redfish/v1/Systems/{}".format( system ), None )
+                system_info = redfish_obj.get( "/redfish/v1/Systems/{}".format( system ) )
                 if system_info.dict["PowerState"] != exp_power_state:
                     results.update_test_results( "Power State Check", 1, "{} was not in the {} state after using {} as the reset type".format( system, exp_power_state, reset_type ) )
                 else:

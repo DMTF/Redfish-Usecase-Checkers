@@ -38,7 +38,7 @@ if __name__ == '__main__':
         base_url = "http://" + args.rhost
     with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
         # Create the results object
-        service_root = redfish_obj.get( "/redfish/v1/", None )
+        service_root = redfish_obj.get( "/redfish/v1/" )
         results = Results( "Power/Thermal Info", service_root.dict )
         if args.directory is not None:
             results.set_output_dir( args.directory )
