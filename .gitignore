@@ -1,2 +1,3 @@
-# local redfishtool package
 redfishtool/
+__pycache__/
+results.json

@@ -1,237 +1,99 @@
 # Copyright Notice:
-# Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
+# Copyright 2017-2019 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
 
-import getopt
-import logging
-import re
+"""
+Power Control Usecase Test
+
+File : power_control.py
+
+Brief : This file contains the definitions and functionalities for performing
+        the usecase test for performing reset and power operations
+"""
+
+import argparse
 import sys
+import time
 
-# noinspection PyUnresolvedReferences
+import redfish
+import redfish_utilities
+
 import toolspath
-from redfishtool import ServiceRoot
-from redfishtool import Systems
-from redfishtool import redfishtoolTransport
 from usecase.results import Results
-from usecase.validation import SchemaValidation
 
+if __name__ == '__main__':
 
-def run_systems_operation(rft, systems):
-    """
-    Send Systems operation to target host
-    """
-    return systems.runOperation(rft)
+    # Get the input arguments
+    argget = argparse.ArgumentParser( description = "Usecase checker for power and reset operations" )
+    argget.add_argument( "--user", "-u", type = str, required = True, help = "The user name for authentication" )
+    argget.add_argument( "--password", "-p",  type = str, required = True, help = "The password for authentication" )
+    argget.add_argument( "--rhost", "-r", type = str, required = True, help = "The address of the Redfish service" )
+    argget.add_argument( "--Secure", "-S", type = str, default = "Always", help = "When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)" )
+    argget.add_argument( "--directory", "-d", type = str, default = None, help = "Output directory for results.json" )
+    args = argget.parse_args()
 
+    # Set up the Redfish object
+    base_url = "https://" + args.rhost
+    if args.Secure == "Never":
+        base_url = "http://" + args.rhost
+    with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
+        # Create the results object
+        service_root = redfish_obj.get( "/redfish/v1/" )
+        results = Results( "Power Control", service_root.dict )
+        if args.directory is not None:
+            results.set_output_dir( args.directory )
 
-def setup_systems_operation(args, rft, systems):
-    """
-    Setup the args for the operation in the rft and systems instances
-    """
-    rft.subcommand = args[0]
-    rft.subcommandArgv = args
-    rft.printVerbose(5, "power_control:setup_systems_operation: args: {}".format(args))
-    if len(args) < 2:
-        if rft.IdOptnCount == 0:
-            systems.operation = "collection"
+        # Get the available systems
+        test_systems = []
+        system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"] )
+        for member in system_col.dict["Members"]:
+            system = redfish_obj.get( member["@odata.id"] )
+            test_systems.append( system.dict["Id"] )
+
+        # Check that the system list is not empty
+        system_count = len( test_systems )
+        print( "Found {} system instances".format( system_count ) )
+        if system_count == 0:
+            results.update_test_results( "System Count", 1, "No system instances were found" )
         else:
-            systems.operation = "get"
-        systems.args = None
-    else:
-        systems.operation = args[1]
-        systems.args = args[1:]  # now args points to the 1st argument
-        systems.argnum = len(systems.args)
+            results.update_test_results( "System Count", 0, None )
 
+        # Perform a test on each system found
+        for system in test_systems:
+            # Check what types of resets are supported
+            reset_types = None
+            reset_uri, reset_params = redfish_utilities.get_system_reset_info( redfish_obj, system )
+            for param in reset_params:
+                if param["Name"] == "ResetType":
+                    reset_types = param["AllowableValues"]
+            if reset_types is None:
+                print( "{} is not advertising any allowable resets".format( system ) )
+                results.update_test_results( "Reset Type Check", 1, "{} is not advertising any allowable resets".format( system ) )
+                continue
+            results.update_test_results( "Reset Type Check", 0, None )
 
-def setup_and_run_systems_operation(args, rft, systems, reset_type):
-    """
-    Setup the operation, run it, print the results and return the power state
-    """
-    setup_systems_operation(args, rft, systems)
-    rc, r, j, d = run_systems_operation(rft, systems)
-    if len(args) == 1:
-        command = "get"
-    else:
-        command = reset_type
-    rft.printVerbose(1, "power_control:setup_and_run_systems_operation: command = {}, rc = {}, response = {}"
-                        ", power_state = {}".format(command, rc, r, get_power_state(j, d)))
-    return rc, r, j, d
+            # Reset the system
+            for reset_type in reset_types:
+                print( "Resetting {} using {}".format( system, reset_type ) )
+                response = redfish_utilities.system_reset( redfish_obj, system )
+                response = redfish_utilities.poll_task_monitor( redfish_obj, response )
+                redfish_utilities.verify_response( response )
+                results.update_test_results( "Reset Performed", 0, None )
 
+                # Check the power state to ensure it's in the proper state
+                exp_power_state = "On"
+                if reset_type == "ForceOff" or reset_type == "GracefulShutdown":
+                    exp_power_state = "Off"
+                system_info = redfish_obj.get( "/redfish/v1/Systems/{}".format( system ) )
+                if system_info.dict["PowerState"] != exp_power_state:
+                    results.update_test_results( "Power State Check", 1, "{} was not in the {} state after using {} as the reset type".format( system, exp_power_state, reset_type ) )
+                else:
+                    results.update_test_results( "Power State Check", 0, None )
 
-def get_power_state(json_data, data):
-    """
-    Retrieve "PowerState" value from data if present
-    """
-    if json_data is True and data is not None and "PowerState" in data:
-        return data["PowerState"]
-    else:
-        return "<n/a>"
+                # Allow some time before the next reset
+                time.sleep( 5 )
 
-
-def validate_power_state(rft, reset_type, before, after):
-    """
-    Verify the power state is correct after issuing the given reset command
-    """
-    state_after = {"On": "On", "ForceOff": "Off", "GracefulShutdown": "Off", "ForceRestart": "On",
-                   "Nmi": "On", "GracefulRestart": "On", "ForceOn": "On", "PushPowerButton": "On"}
-    if before == "On":
-        state_after["PushPowerButton"] = "Off"
-    if after == state_after[reset_type]:
-        rft.printVerbose(1, "power_control:validate_power_state: Reset command {} successful".format(reset_type))
-        return 0
-    else:
-        rft.printVerbose(1, "power_control:validate_power_state: Power state after command {} was {}, expected {}"
-                         .format(reset_type, after, state_after[reset_type]))
-        return 1
-
-
-def validate_reset_command(rft, systems, validator, reset_type):
-    """
-    Issue command to perform the reset action and schema validate the response data (if any)
-    """
-    args = ["Systems", "reset", reset_type]
-    rc, r, j, d = setup_and_run_systems_operation(args, rft, systems, reset_type)
-    msg = None
-    if rc != 0:
-        msg = "Error issuing reset command '{}', return code = {}".format(reset_type, rc)
-    if rc == 0 and j is True and d is not None:
-        schema = validator.get_json_schema(d)
-        rc, msg = validator.validate_json(d, schema)
-    return rc, msg
-
-
-def get_service_root(rft, root):
-    """
-    Get Service Root information
-    """
-    rc, r, j, d = root.getServiceRoot(rft)
-    rft.printVerbose(1, "power_control:get_service_root: rc = {}, response = {}, json_data = {}, data = {}"
-                     .format(rc, r, j, d))
-    return d
-
-
-def display_usage(pgm_name):
-    """
-    Display the program usage statement
-    """
-    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
-    print("       [-I <Id>] [-M <prop>:<val>] [-L <Link>] [-F] [-1] [-a] <reset_type>")
-
-
-def log_results(results):
-    """
-    Log the results of the power control validation run
-    """
+    # Save the results
     results.write_results()
 
-
-def main(argv):
-    """
-    main
-    """
-    rft = redfishtoolTransport.RfTransport()
-    systems = Systems.RfSystemsMain()
-    root = ServiceRoot.RfServiceRoot()
-    output_dir = None
-
-    try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:I:M:F1L:aS:",
-                                       ["verbose", "user=", "password=", "rhost=", "directory=", "Id=", "Match=",
-                                        "First", "One", "Link=", "all", "Secure="])
-    except getopt.GetoptError:
-        rft.printErr("Error parsing options")
-        display_usage(argv[0])
-        sys.exit(1)
-
-    for index, (opt, arg) in enumerate(opts):
-        if opt in ("-v", "--verbose"):
-            rft.verbose = min((rft.verbose + 1), 5)
-        elif opt in ("-d", "--directory"):
-            output_dir = arg
-        elif opt in ("-r", "--rhost"):
-            rft.rhost = arg
-        elif opt in ("-u", "--user"):
-            rft.user = arg
-        elif opt in ("-p", "--password"):
-            rft.password = arg
-            # mask password, which will be logged in Results
-            opts[index] = (opt, "********")
-        elif opt in ("-I", "--Id"):
-            rft.Id = rft.matchValue = arg
-            rft.gotIdOptn = rft.gotMatchOptn = rft.firstOptn = True
-            rft.IdOptnCount += 1
-            rft.matchProp = "Id"
-        elif opt in ("-M", "--Match"):
-            # arg is of the form: "<prop>:<value>"
-            match_prop_pattern = "^(.+):(.+)$"
-            match_prop_match = re.search(match_prop_pattern, arg)
-            if match_prop_match:
-                rft.matchProp = match_prop_match.group(1)
-                rft.matchValue = match_prop_match.group(2)
-                rft.IdOptnCount += 1
-                rft.gotMatchOptn = True
-            else:
-                rft.printErr("Invalid --Match= option format: {}".format(arg))
-                rft.printErr("     Expect --Match=<prop>:<value> Ex -M AssetTag:5555, --Match=AssetTag:5555",
-                             noprog=True)
-                sys.exit(1)
-        elif opt in ("-F", "--First"):
-            rft.firstOptn = True
-            rft.IdOptnCount += 1
-        elif opt in ("-1", "--One"):
-            rft.oneOptn = True
-            rft.IdOptnCount += 1
-        elif opt in ("-L", "--Link"):
-            rft.Link = arg
-            rft.gotIdOptn = True
-            rft.IdOptnCount += 1
-        elif opt in ("-a", "--all"):
-            rft.allOptn = True
-            rft.IdLevel2OptnCount += 1
-        elif opt in ("-S", "--Secure"):  # Specify when to use HTTPS
-            rft.secure = arg
-            if rft.secure not in rft.secureValidValues:
-                rft.printErr("Invalid --Secure option: {}".format(rft.secure))
-                rft.printErr("     Valid values: {}".format(rft.secureValidValues), noprog=True)
-                sys.exit(1)
-
-    # check for invalid option combinations
-    if rft.IdOptnCount > 1:
-        if rft.IdOptnCount > 2 or (not (rft.firstOptn and rft.gotMatchOptn)):
-            rft.printErr("Syntax error: invalid combination of -I, -M, -1, -F, -L options.")
-            rft.printErr("    Valid combinations: -I | -M | -1 | -F | -L | -M -F", noprog=True)
-            display_usage(argv[0])
-            sys.exit(1)
-
-    if not args or len(args) > 1:
-        rft.printErr("Must supply exactly one reset_type argument")
-        display_usage(argv[0])
-        sys.exit(1)
-
-    reset_type = args[0]
-
-    # Set up logging
-    log_level = logging.WARNING
-    if 0 < rft.verbose < 3:
-        log_level = logging.INFO
-    elif rft.verbose >= 3:
-        log_level = logging.DEBUG
-    logging.basicConfig(stream=sys.stderr, level=log_level)
-
-    service_root = get_service_root(rft, root)
-    results = Results("Power Control Checker", service_root)
-    if output_dir is not None:
-        results.set_output_dir(output_dir)
-    args_list = [argv[0]] + [v for opt in opts for v in opt] + args
-    results.add_cmd_line_args(args_list)
-    auth = (rft.user, rft.password)
-    nossl = True if rft.secure == "Never" else False
-    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, verify=False, nossl=nossl)
-    rc, msg = validate_reset_command(rft, systems, validator, reset_type)
-    results.update_test_results(reset_type, rc, msg)
-
-    log_results(results)
-    exit(results.get_return_code())
-
-
-if __name__ == "__main__":
-    main(sys.argv)
+    sys.exit( results.get_return_code() )

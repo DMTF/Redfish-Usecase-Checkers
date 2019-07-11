@@ -1,83 +1,60 @@
 
-Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
+Copyright 2017-2019 Distributed Management Task Force, Inc. All rights reserved.
 
 # Redfish-Usecase-Checkers
 
         Language: Python 3.x
         
-This is a collection of tools to exercise and validate common use cases for DMTF Redfish. For example:
-
+This is a collection of tools to exercise and validate common use cases for DMTF Redfish.
+For example:
 * Issue system reset commands (On, GracefulShutdown, GracefulRestart, etc.)
-* Issue PATCH request for BootOverride modes, modifying BIOS/UEFI boot sequence
+* Issue PATCH requests for BootOverride modes, modifying BIOS/UEFI boot sequence
 * Add/modify/delete Account users and roles
-* If the command returns a JSON payload, it is validated against the service schema
 
-Some of the checker tools leverage modules from [DMTF/Redfishtool](https://github.com/DMTF/Redfishtool).
 
 ## Prerequisites
 
-Install `jsonschema` and `redfishtool`:
+Install `jsonschema`, `redfishtool`, `redfish`, and `redfish_utilities`:
 
 ```
 pip install jsonschema
 pip install redfishtool
+pip install redfish
+pip install redfish_utilities
 ```
+
 
 ## Example Usage
 
 Each tool may be ran with -h, for verbose help on parameters.
 
+
 ### One time boot checker examples
 
-Issue patch request and issue POST action to resetting host `127.0.0.1:8000`, with mode Once and target Pxe, with user and pass
+Sets all systems found at `127.0.0.1:8000` the boot override set to either PXE or USB, and resets the system to see the boot override is performed.
 
 ```
-$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass>
+$ python3 one_time_boot_check.py -r 127.0.0.1:8000 -u <user> -p <pass>
 ```
 
-Issue patch request and issue POST action to resetting specific system `sysNumber1` on `127.0.0.1:8000`, with mode Once and target Pxe...
+
+### Power/thermal info checker examples
+
+Finds all chassis instances at `127.0.0.1:8000` and collects their respective power and thermal information.
 
 ```
-$ python3 one_time_boot.py 127.0.0.1:8000 Once Pxe -u <user> -p <pass> --target_systems sysNumber1
+$ python3 power_thermal_test.py -r 127.0.0.1:8000 -u <user> -p <pass>
 ```
+
 
 ### Power control checker examples
 
-Issue reset command `GracefulRestart` to system with Id `437XR1138R2` on host `127.0.0.1:8000` with no https security:
+Performs all possible resets of systems found at `127.0.0.1:8000`:
 
 ```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Never -I 437XR1138R2 GracefulRestart
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <pass>
 ```
 
-Issue reset command `On` to the first system in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -F On
-```
-
-Issue reset command `On` to the only system in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -1 On
-```
-
-Issue reset command `Nmi` to system at link `/redfish/v1/Systems/System.Embedded.1` on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -L /redfish/v1/Systems/System.Embedded.1 Nmi
-```
-
-Issue reset command `ForceOff` to system with AssatTag value `12345` on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always -M AssetTag:12345 ForceOff
-```
-
-Issue reset command `GracefulShutdown` to all systems in the Systems collection on host `127.0.0.1:8000` with https security always enabled:
-
-```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <password> -S Always --all GracefulShutdown
-```
 
 ### Account management checker examples
 
