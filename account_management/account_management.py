@@ -141,7 +141,7 @@ if __name__ == "__main__":
                 else:
                     results.update_test_results( "Delete User", 0, None )
             except:
-                results.update_test_results( "Delete User", 0, "Failed to delete user '{}'".format( test_username ) )
+                results.update_test_results( "Delete User", 1, "Failed to delete user '{}'".format( test_username ) )
 
     # Save the results
     results.write_results()
