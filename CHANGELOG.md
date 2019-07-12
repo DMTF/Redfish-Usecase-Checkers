@@ -1,5 +1,7 @@
-
 # Change Log
+
+## [0.9.5] - 2019-07-12
+- Updated one time boot, sensor list, and power control tools to leverage redfish_utilities
 
 ## [0.9.2] - 2017-04-27
 - Added JSON schema validation

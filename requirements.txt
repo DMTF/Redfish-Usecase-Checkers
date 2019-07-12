@@ -1,4 +1,4 @@
 jsonschema
 redfishtool
-redfish
-redfish_utilities
+redfish>=2.1.0
+redfish_utilities>=1.0.0
