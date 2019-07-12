@@ -1,190 +1,149 @@
 # Copyright Notice:
-# Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
+# Copyright 2017-2019 Distributed Management Task Force, Inc. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
 
-import getopt
-import logging
-import re
+"""
+Account Management Usecase Test
+
+File : account_management.py
+
+Brief : This file contains the definitions and functionalities for performing
+        the usecase test for account management
+"""
+
+import argparse
 import sys
 
-# noinspection PyUnresolvedReferences
+import redfish
+import redfish_utilities
+
 import toolspath
-from redfishtool import AccountService
-from redfishtool import ServiceRoot
-from redfishtool import redfishtoolTransport
 from usecase.results import Results
-from usecase.validation import SchemaValidation
 
-
-def run_account_operation(rft, account):
+def verify_user( context, user_name, role = None ):
     """
-    Send AccountService operation to remote host
+    Checks that a given user is in the user list with a certain role
+
+    Args:
+        context: The Redfish client object with an open session
+        user_name: The name of the user to check
+        role: The role for the user
+
+    Returns:
+        True if a match is found, false otherwise
     """
-    return account.runOperation(rft)
+    user_list = redfish_utilities.get_users( context )
+    for user in user_list:
+        if user["UserName"] == user_name:
+            if role is None or user["RoleId"] == role:
+                return True
+            break
 
-
-def setup_account_operation(args, rft, account):
-    """
-    Setup the args for the operation in the rft and account_service instances
-    """
-    rft.subcommand = args[0]
-    rft.subcommandArgv = args
-    rft.printVerbose(5, "account_management:setup_account_operation: args: {}".format(args))
-    # if no args, this is an AccountService 'get' command
-    if len(args) < 2:
-        account.operation = "get"
-        account.args = None
-    else:
-        account.operation = args[1]
-        account.args = args[1:]  # now args points to the 1st argument
-        account.argnum = len(account.args)
-
-
-def setup_and_run_account_operation(args, rft, account):
-    """
-    Setup the operation, run it, print the results and return the results
-    """
-    setup_account_operation(args, rft, account)
-    rc, r, j, d = run_account_operation(rft, account)
-    rft.printVerbose(1, "account_management:setup_and_run_account_operation: " +
-                     "rc = {}, response = {}, json_data = {}, data = {}"
-                     .format(rc, r, j, d))
-    return rc, r, j, d
-
-
-def validate_account_command(rft, account, validator, args):
-    """
-    Perform the account operation and validate the returned payload against the schema
-    """
-    rc, r, j, d = setup_and_run_account_operation(args, rft, account)
-    msg = None
-    if rc != 0:
-        msg = "Error issuing '{}' command, return code = {}".format(args[1], rc)
-    if rc == 0 and j is True and d is not None:
-        schema = validator.get_json_schema(d)
-        rc, msg = validator.validate_json(d, schema)
-    return rc, msg
-
-
-def get_service_root(rft, root):
-    """
-    Get Service Root information
-    """
-    rc, r, j, d = root.getServiceRoot(rft)
-    rft.printVerbose(1, "account_management:get_service_root: rc = {}, response = {}, json_data = {}, data = {}"
-                     .format(rc, r, j, d))
-    return d
-
-
-def display_usage(pgm_name):
-    print("Usage: {} [-v] [-d <output_dir>] [-u <user>] [-p <password>] -r <rhost> [-S <Secure>]".format(pgm_name))
-    print("       [-i <id>] [-m <prop>:<value>] [<op> [<op_args> ...]]")
-
-
-def log_results(results):
-    """
-    Log the results of the account management validation run
-    """
-    results.write_results()
-
-
-def main(argv):
-    """
-    main
-    """
-    rft = redfishtoolTransport.RfTransport()
-    account = AccountService.RfAccountServiceMain()
-    root = ServiceRoot.RfServiceRoot()
-    output_dir = None
-
-    try:
-        opts, args = getopt.gnu_getopt(argv[1:], "vu:p:r:d:i:m:S:", ["verbose", "user=", "password=", "rhost=",
-                                                                     "directory=", "id=", "match=", "Secure="])
-    except getopt.GetoptError:
-        rft.printErr("Error parsing options")
-        display_usage(argv[0])
-        sys.exit(1)
-
-    for index, (opt, arg) in enumerate(opts):
-        if opt in ("-v", "--verbose"):
-            rft.verbose = min((rft.verbose + 1), 5)
-        elif opt in ("-d", "--directory"):
-            output_dir = arg
-        elif opt in ("-r", "--rhost"):
-            rft.rhost = arg
-        elif opt in ("-u", "--user"):
-            rft.user = arg
-        elif opt in ("-p", "--password"):
-            rft.password = arg
-            # mask password in 'opts', which will be logged in Results
-            opts[index] = (opt, "********")
-        elif opt in ("-i", "--id"):
-            rft.IdLevel2 = rft.matchLevel2Value = arg
-            rft.gotIdLevel2Optn = rft.gotMatchLevel2Optn = True
-            rft.IdLevel2OptnCount += 1
-            rft.matchLevel2Prop = "Id"
-        elif opt in ("-m", "--match"):
-            # arg is of the form: "<prop>:<value>"
-            match_prop_pattern = "^(.+):(.+)$"
-            match_prop_match = re.search(match_prop_pattern, arg)
-            if match_prop_match:
-                rft.matchLevel2Prop = match_prop_match.group(1)
-                rft.matchLevel2Value = match_prop_match.group(2)
-                rft.IdLevel2OptnCount += 1
-                rft.gotMatchLevel2Optn = True
-            else:
-                rft.printErr("Invalid level2 --match= option format: {}".format(arg))
-                rft.printErr("     Expect --match=<prop>:<value> Ex -m ProcessorType:CPU, --match=ProcessorType:CPU",
-                             noprog=True)
-                sys.exit(1)
-        elif opt in ("-S", "--Secure"):  # Specify when to use HTTPS
-            rft.secure = arg
-            if rft.secure not in rft.secureValidValues:
-                rft.printErr("Invalid --Secure option: {}".format(rft.secure))
-                rft.printErr("     Valid values: {}".format(rft.secureValidValues), noprog=True)
-                sys.exit(1)
-
-    # check for invalid Level-2 collection member reference options
-    if rft.IdLevel2OptnCount > 1:
-        rft.printErr("Syntax error: invalid mix of options -i and -m used to specify a 2nd-level collection member.")
-        rft.printErr("    Valid combinations: -i | -m ", noprog=True)
-        display_usage(argv[0])
-        sys.exit(1)
-
-    if not args:
-        # if no args, use the default scenario (add, get, modify, delete user)
-        user = "alice73t"
-        scenario_list = [["AccountService", "adduser", user, "hUPgd9Z4"],
-                         ["AccountService", "useradmin", user, "disable"],
-                         ["AccountService", "deleteuser", user],
-                         ["AccountService", "Accounts"]]
-    else:
-        scenario_list = [["AccountService"] + args]
-
-    # Set up logging
-    log_level = logging.WARNING
-    if 0 < rft.verbose < 3:
-        log_level = logging.INFO
-    elif rft.verbose >= 3:
-        log_level = logging.DEBUG
-    logging.basicConfig(stream=sys.stderr, level=log_level)
-
-    service_root = get_service_root(rft, root)
-    results = Results("Account Management Checker", service_root)
-    if output_dir is not None:
-        results.set_output_dir(output_dir)
-    args_list = [argv[0]] + [v for opt in opts for v in opt] + args
-    results.add_cmd_line_args(args_list)
-    auth = (rft.user, rft.password)
-    nossl = True if rft.secure == "Never" else False
-    validator = SchemaValidation(rft.rhost, service_root, results, auth=auth, verify=False, nossl=nossl)
-    for scenario in scenario_list:
-        rc, msg = validate_account_command(rft, account, validator, scenario)
-        results.update_test_results(scenario[1], rc, msg)
-
-    log_results(results)
-    exit(results.get_return_code())
-
+    return False
 
 if __name__ == "__main__":
-    main(sys.argv)
+
+    # Get the input arguments
+    argget = argparse.ArgumentParser( description = "Usecase checker for account management" )
+    argget.add_argument( "--user", "-u", type = str, required = True, help = "The user name for authentication" )
+    argget.add_argument( "--password", "-p",  type = str, required = True, help = "The password for authentication" )
+    argget.add_argument( "--rhost", "-r", type = str, required = True, help = "The address of the Redfish service" )
+    argget.add_argument( "--Secure", "-S", type = str, default = "Always", help = "When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)" )
+    argget.add_argument( "--directory", "-d", type = str, default = None, help = "Output directory for results.json" )
+    args = argget.parse_args()
+
+    test_username = "alice73t"
+    test_password = "hUPgd9Z4"
+
+    # Set up the Redfish object
+    base_url = "https://" + args.rhost
+    if args.Secure == "Never":
+        base_url = "http://" + args.rhost
+    with redfish.redfish_client( base_url = base_url, username = args.user, password = args.password ) as redfish_obj:
+        # Create the results object
+        service_root = redfish_obj.get( "/redfish/v1/" )
+        results = Results( "Account Management", service_root.dict )
+        if args.directory is not None:
+            results.set_output_dir( args.directory )
+
+        # Get the list of current users
+        user_list = redfish_utilities.get_users( redfish_obj )
+        user_count = len( user_list )
+        if user_count == 0:
+            results.update_test_results( "User Count", 1, "No users were found" )
+        else:
+            results.update_test_results( "User Count", 0, None )
+
+        # Create a new user
+        user_added = False
+        try:
+            print( "Creating new user '{}'".format( test_username ) )
+            redfish_utilities.add_user( redfish_obj, test_username, test_password, "Administrator" )
+            redfish_utilities.modify_user( redfish_obj, test_username, new_enabled = True )
+            results.update_test_results( "Add User", 0, None )
+            user_added = True
+        except:
+            results.update_test_results( "Add User", 1, "Failed to add user '{}'".format( test_username ) )
+
+        # Only run the remaining tests if the user was added successfully
+        if user_added:
+            # Get the list of current users to verify the new user was added
+            if verify_user( redfish_obj, test_username, "Administrator" ):
+                results.update_test_results( "Add User", 0, None )
+            else:
+                results.update_test_results( "Add User", 1, "Failed to find user '{}' with the role 'Administrator'".format( test_username ) )
+
+            # Log in with the new user
+            print( "Logging in as '{}'".format( test_username ) )
+            test_obj = redfish.redfish_client( base_url = base_url, username = test_username, password = test_password )
+            try:
+                test_obj.login( auth = "session" )
+                test_list = redfish_utilities.get_users( test_obj )
+                results.update_test_results( "Credential Check", 0, None )
+            except:
+                results.update_test_results( "Credential Check", 1, "Failed to login with user '{}'".format( test_username ) )
+            finally:
+                test_obj.logout()
+
+            # Log in with the new user, but with bad credentials
+            print( "Logging in as '{}', but with the wrong password".format( test_username ) )
+            test_obj = redfish.redfish_client( base_url = base_url, username = test_username, password = test_password + "ExtraStuff" )
+            try:
+                test_obj.login( auth = "session" )
+                test_list = redfish_utilities.get_users( test_obj )
+                results.update_test_results( "Credential Check", 1, "Login with user '{}' when using invalid credentials".format( test_username ) )
+            except:
+                results.update_test_results( "Credential Check", 0, None )
+            finally:
+                test_obj.logout()
+
+            # Change the role of the user
+            test_roles = [ "ReadOnly", "Operator", "Administrator" ]
+            for role in test_roles:
+                try:
+                    print( "Setting user '{}' to role '{}'".format( test_username, role ) )
+                    redfish_utilities.modify_user( redfish_obj, test_username, new_role = role )
+                    results.update_test_results( "Change Role", 0, None )
+                    if verify_user( redfish_obj, test_username, role ):
+                        results.update_test_results( "Change Role", 0, None )
+                    else:
+                        results.update_test_results( "Change Role", 1, "Failed to find user '{}' with the role '{}'".format( test_username, role ) )
+                except:
+                    results.update_test_results( "Change Role", 1, "Failed to set user '{}' to '{}'".format( test_username, role ) )
+
+            # Delete the user
+            try:
+                print( "Deleting user '{}'".format( test_username ) )
+                redfish_utilities.delete_user( redfish_obj, test_username )
+                results.update_test_results( "Delete User", 0, None )
+                if verify_user( redfish_obj, test_username ):
+                    results.update_test_results( "Delete User", 1, "User '{}' is still in the user list".format( test_username ) )
+                else:
+                    results.update_test_results( "Delete User", 0, None )
+            except:
+                results.update_test_results( "Delete User", 0, "Failed to delete user '{}'".format( test_username ) )
+
+    # Save the results
+    results.write_results()
+
+    sys.exit( results.get_return_code() )
