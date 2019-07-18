@@ -1,4 +1,3 @@
-
 Copyright 2017-2019 Distributed Management Task Force, Inc. All rights reserved.
 
 # Redfish-Usecase-Checkers
@@ -14,72 +13,68 @@ For example:
 
 ## Prerequisites
 
-Install `jsonschema`, `redfishtool`, `redfish`, and `redfish_utilities`:
+Install `jsonschema`, `redfish`, and `redfish_utilities`:
 
 ```
 pip install jsonschema
-pip install redfishtool
 pip install redfish
 pip install redfish_utilities
 ```
 
 
-## Example Usage
+## Test Details and Examples
 
 Each tool may be ran with -h, for verbose help on parameters.
 
 
-### One time boot checker examples
+### One Time Boot Checker
 
-Sets all systems found at `127.0.0.1:8000` the boot override set to either PXE or USB, and resets the system to see the boot override is performed.
+This checker logs into a specified service and traverses the `Systems` collection.
+It will perform the following operations on all systems:
+* Reads the `Boot` object
+* Sets the `BootSourceOverrideTarget` property to either `Pxe` or `Usb`, depending on what's allowed
+* Performs a reset of the system
+* Monitors the `BootSourceOverrideTarget` property after the reset to ensure it changes back to `None`
 
+Example:
 ```
-$ python3 one_time_boot_check.py -r 127.0.0.1:8000 -u <user> -p <pass>
-```
-
-
-### Power/thermal info checker examples
-
-Finds all chassis instances at `127.0.0.1:8000` and collects their respective power and thermal information.
-
-```
-$ python3 power_thermal_test.py -r 127.0.0.1:8000 -u <user> -p <pass>
+$ python3 one_time_boot_check.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 ```
 
 
-### Power control checker examples
+### Power/Thermal Info Checker
 
-Performs all possible resets of systems found at `127.0.0.1:8000`:
+This checker logs into a specified service and traverses the `Chassis` collection.
+For each chassis found, it will ensure that it can collect at least one sensor reading from the `Power` and `Thermal` resources.
 
+Example:
 ```
-$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <pass>
-```
-
-
-### Account management checker examples
-
-
-Issue command to add user `alice` on host `127.0.0.1` with security enabled:
-```
-$ python3 account_management.py -r 127.0.0.1 -u root -p <pwd_for_root> -S Always adduser alice <pwd_for_alice>
+$ python3 power_thermal_test.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 ```
 
-Issue command to fetch the account for user `alice`:
+
+### Power Control Checker
+
+This checker logs into a specified service and traverses the `Systems` collection.
+It will perform the following operations on all systems:
+* Reads the allowable `ResetType` parameter values
+* Performs a reset using each of the allowable `ResetType` values
+
+Example:
 ```
-$ python3 account_management.py -r 127.0.0.1 -u root -p <pwd_for_root> -S Always Accounts -mUserName:alice
+$ python3 power_control.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 ```
 
-Issue command to disable the account for user `alice`:
-```
-$ python3 account_management.py -r 127.0.0.1 -u root -p <pwd_for_root> -S Always useradmin alice disable
-```
 
-Issue command to delete the account for user `alice`:
-```
-$ python3 account_management.py -r 127.0.0.1 -u root -p <pwd_for_root> -S Always deleteuser alice
-```
+### Account Management Checker
 
-Issue command to set username for account with Id=3 to `bob`:
+This checker logs into a specified service and performs the following operations:
+* Creates a new user
+* Logs into the service with the new user
+* Modifies the new user with different roles
+* Deletes the new user
+
+Example:
 ```
-$ python3 account_management.py -r 127.0.0.1 -u root -p <pwd_for_root> -S Always setusername 3 bob
+$ python3 account_management.py --r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 ```
