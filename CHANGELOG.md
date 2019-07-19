@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.0] - 2019-07-19
+- Updated account management tools to leverage redfish_utilities
+
 ## [0.9.5] - 2019-07-12
 - Updated one time boot, sensor list, and power control tools to leverage redfish_utilities
 
