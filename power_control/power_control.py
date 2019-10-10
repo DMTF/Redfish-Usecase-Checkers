@@ -48,7 +48,7 @@ if __name__ == '__main__':
         system_col = redfish_obj.get( service_root.dict["Systems"]["@odata.id"] )
         for member in system_col.dict["Members"]:
             system = redfish_obj.get( member["@odata.id"] )
-            test_systems.append( system.dict["Id"] )
+            test_systems.append( { "Id": system.dict["Id"], "URI": member["@odata.id"] } )
 
         # Check that the system list is not empty
         system_count = len( test_systems )
@@ -62,20 +62,20 @@ if __name__ == '__main__':
         for system in test_systems:
             # Check what types of resets are supported
             reset_types = None
-            reset_uri, reset_params = redfish_utilities.get_system_reset_info( redfish_obj, system )
+            reset_uri, reset_params = redfish_utilities.get_system_reset_info( redfish_obj, system["Id"] )
             for param in reset_params:
                 if param["Name"] == "ResetType":
                     reset_types = param["AllowableValues"]
             if reset_types is None:
-                print( "{} is not advertising any allowable resets".format( system ) )
-                results.update_test_results( "Reset Type Check", 1, "{} is not advertising any allowable resets".format( system ) )
+                print( "{} is not advertising any allowable resets".format( system["Id"] ) )
+                results.update_test_results( "Reset Type Check", 1, "{} is not advertising any allowable resets".format( system["Id"] ) )
                 continue
             results.update_test_results( "Reset Type Check", 0, None )
 
             # Reset the system
             for reset_type in reset_types:
-                print( "Resetting {} using {}".format( system, reset_type ) )
-                response = redfish_utilities.system_reset( redfish_obj, system )
+                print( "Resetting {} using {}".format( system["Id"], reset_type ) )
+                response = redfish_utilities.system_reset( redfish_obj, system["Id"] )
                 response = redfish_utilities.poll_task_monitor( redfish_obj, response )
                 redfish_utilities.verify_response( response )
                 results.update_test_results( "Reset Performed", 0, None )
@@ -84,11 +84,14 @@ if __name__ == '__main__':
                 exp_power_state = "On"
                 if reset_type == "ForceOff" or reset_type == "GracefulShutdown":
                     exp_power_state = "Off"
-                system_info = redfish_obj.get( "/redfish/v1/Systems/{}".format( system ) )
-                if system_info.dict["PowerState"] != exp_power_state:
-                    results.update_test_results( "Power State Check", 1, "{} was not in the {} state after using {} as the reset type".format( system, exp_power_state, reset_type ) )
+                system_info = redfish_obj.get( system["URI"] )
+                if "PowerState" in system_info.dict:
+                    if system_info.dict["PowerState"] != exp_power_state:
+                        results.update_test_results( "Power State Check", 1, "{} was not in the {} state after using {} as the reset type".format( system["Id"], exp_power_state, reset_type ) )
+                    else:
+                        results.update_test_results( "Power State Check", 0, None )
                 else:
-                    results.update_test_results( "Power State Check", 0, None )
+                    results.update_test_results( "Power State Check", 0, "{} does not contain the PowerState property".format( system["Id"] ), skipped = True )
 
                 # Allow some time before the next reset
                 time.sleep( 5 )
