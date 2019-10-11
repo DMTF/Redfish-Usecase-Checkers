@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.0.1] - 2019-10-11
+- Added tracking of system URIs to the power control test to support pre-1.6.0 services
+- Added checking for the presence of the PowerState property in the power control test
+
 ## [1.0.0] - 2019-07-19
 - Updated account management tools to leverage redfish_utilities
 
