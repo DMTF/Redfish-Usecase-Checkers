@@ -98,14 +98,14 @@ if __name__ == '__main__':
                 for i in range( 0, 60 ):
                     time.sleep( 1 )
                     boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
-                    if boot_obj["BootSourceOverrideTarget"] == "None":
+                    if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
                         break
-                if boot_obj["BootSourceOverrideTarget"] == "None":
+                if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
                     print( "{} booted from {}!".format( system, test_path ) )
                     results.update_test_results( "Boot Verify", 0, None )
                 else:
                     print( "{} failed to boot from {}!".format( system, test_path ) )
-                    results.update_test_results( "Boot Verify", 1, "{} did not reset back to 'None'".format( system ) )
+                    results.update_test_results( "Boot Verify", 1, "{} did not reset back to 'Disabled'".format( system ) )
 
     # Save the results
     results.write_results()
