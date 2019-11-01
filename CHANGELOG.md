@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.2] - 2019-11-01
+- Made a fix in the one time boot test to check that BootSourceOverrideEnabled is set back to Disabled
+
 ## [1.0.1] - 2019-10-11
 - Added tracking of system URIs to the power control test to support pre-1.6.0 services
 - Added checking for the presence of the PowerState property in the power control test
