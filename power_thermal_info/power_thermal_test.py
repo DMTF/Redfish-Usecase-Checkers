@@ -66,6 +66,22 @@ if __name__ == '__main__':
         else:
             results.update_test_results( "Sensor Count", 0, None )
 
+    # Test 3: Check that all sensors not "Enabled" don't have a bogus reading
+    print( "Testing sensor readings..." )
+    for chassis in sensors:
+        for reading in chassis["Readings"]:
+            if reading["State"] is not None and reading["Reading"] is not None:
+                # Both State and Reading are populated; perform the test
+                if reading["State"] != "Enabled" and reading["Reading"] != reading["State"]:
+                    # When State is not Enabled, Reading is supposed to be a copy of State
+                    # The only time this is not true is if there is a bogus reading, such as reporting "0V" when a device is absent
+                    error_string = "Sensor '{}' in chassis '{}' contains reading '{}', but is in state '{}'.".format(
+                        chassis["ChassisName"], reading["Name"], reading["Reading"], reading["State"] )
+                    print( error_string )
+                    results.update_test_results( "Sensor State", 1, error_string )
+                else:
+                    results.update_test_results( "Sensor State", 0, None )
+
     # Save the results
     results.write_results()
 
