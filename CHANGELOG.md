@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.0.3] - 2020-05-14
+- Increased minimum version of redfish_utilities to 1.0.6
+- Added a new check in the power/thermal test to verify sensors do not have bogus readings
+- Added check in account test to see if the test account is enabled before trying to enable it
+- Added fallback attempts in the account test to use different usernames to avoid possible name collision
+- Added fallback attempts in the account test to use different passwords in case the service has complexity rules
+
 ## [1.0.2] - 2019-11-01
 - Made a fix in the one time boot test to check that BootSourceOverrideEnabled is set back to Disabled
 
