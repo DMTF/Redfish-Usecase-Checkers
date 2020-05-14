@@ -46,6 +46,7 @@ $ python3 one_time_boot_check.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 
 This checker logs into a specified service and traverses the `Chassis` collection.
 For each chassis found, it will ensure that it can collect at least one sensor reading from the `Power` and `Thermal` resources.
+For each sensor reading found, it will ensure that the readings are consistent with the state of the sensor, as in there are no bogus readings for a device that isn't present.
 
 Example:
 ```

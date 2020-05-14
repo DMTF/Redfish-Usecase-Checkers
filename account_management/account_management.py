@@ -20,7 +20,7 @@ import redfish_utilities
 import toolspath
 from usecase.results import Results
 
-def verify_user( context, user_name, role = None ):
+def verify_user( context, user_name, role = None, enabled = None ):
     """
     Checks that a given user is in the user list with a certain role
 
@@ -28,6 +28,7 @@ def verify_user( context, user_name, role = None ):
         context: The Redfish client object with an open session
         user_name: The name of the user to check
         role: The role for the user
+        enabled: The enabled state for the user
 
     Returns:
         True if a match is found, false otherwise
@@ -35,9 +36,11 @@ def verify_user( context, user_name, role = None ):
     user_list = redfish_utilities.get_users( context )
     for user in user_list:
         if user["UserName"] == user_name:
-            if role is None or user["RoleId"] == role:
-                return True
-            break
+            if role is not None and user["RoleId"] != role:
+                return False
+            if enabled is not None and user["Enabled"] != enabled:
+                return False
+            return True
 
     return False
 
@@ -51,9 +54,6 @@ if __name__ == "__main__":
     argget.add_argument( "--Secure", "-S", type = str, default = "Always", help = "When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)" )
     argget.add_argument( "--directory", "-d", type = str, default = None, help = "Output directory for results.json" )
     args = argget.parse_args()
-
-    test_username = "alice73t"
-    test_password = "hUPgd9Z4"
 
     # Set up the Redfish object
     base_url = "https://" + args.rhost
@@ -73,25 +73,54 @@ if __name__ == "__main__":
             results.update_test_results( "User Count", 1, "No users were found" )
         else:
             results.update_test_results( "User Count", 0, None )
+        usernames = []
+        for user in user_list:
+            usernames.append( user["UserName"] )
+
+        # Determine a user name for testing
+        for x in range( 1000 ):
+            test_username = "testuser" + str( x )
+            if test_username not in usernames:
+                break
 
         # Create a new user
         user_added = False
-        try:
-            print( "Creating new user '{}'".format( test_username ) )
-            redfish_utilities.add_user( redfish_obj, test_username, test_password, "Administrator" )
-            redfish_utilities.modify_user( redfish_obj, test_username, new_enabled = True )
+        test_passwords = [ "hUPgd9Z4", "7jIl3dn!kd0Fql", "m5Ljed3!n0olvdS*m0kmWER15!" ]
+        print( "Creating new user '{}'".format( test_username ) )
+        for x in range( 3 ):
+            # Try different passwords in case there are password requirements that we cannot detect
+            try:
+                test_password = test_passwords[x]
+                redfish_utilities.add_user( redfish_obj, test_username, test_password, "Administrator" )
+                user_added = True
+                break
+            except:
+                pass
+        if user_added:
             results.update_test_results( "Add User", 0, None )
-            user_added = True
-        except:
+        else:
             results.update_test_results( "Add User", 1, "Failed to add user '{}'".format( test_username ) )
 
         # Only run the remaining tests if the user was added successfully
         if user_added:
             # Get the list of current users to verify the new user was added
-            if verify_user( redfish_obj, test_username, "Administrator" ):
+            if verify_user( redfish_obj, test_username, role = "Administrator" ):
                 results.update_test_results( "Add User", 0, None )
             else:
                 results.update_test_results( "Add User", 1, "Failed to find user '{}' with the role 'Administrator'".format( test_username ) )
+
+            # Check if the user needs to be enabled
+            try:
+                if verify_user( redfish_obj, test_username, enabled = False ):
+                    redfish_utilities.modify_user( redfish_obj, test_username, new_enabled = True )
+                    if verify_user( redfish_obj, test_username, enabled = True ):
+                        results.update_test_results( "Enable User", 0, None )
+                    else:
+                        results.update_test_results( "Enable User", 1, "User '{}' not enabled after successful PATCH".format( test_username ) )
+                else:
+                    results.update_test_results( "Enable User", 0, "User '{}' already enabled by the service".format( test_username ), skipped = True )
+            except:
+                results.update_test_results( "Enable User", 1, "Failed to enable user '{}'".format( test_username ) )
 
             # Log in with the new user
             print( "Logging in as '{}'".format( test_username ) )
@@ -124,7 +153,7 @@ if __name__ == "__main__":
                     print( "Setting user '{}' to role '{}'".format( test_username, role ) )
                     redfish_utilities.modify_user( redfish_obj, test_username, new_role = role )
                     results.update_test_results( "Change Role", 0, None )
-                    if verify_user( redfish_obj, test_username, role ):
+                    if verify_user( redfish_obj, test_username, role = role ):
                         results.update_test_results( "Change Role", 0, None )
                     else:
                         results.update_test_results( "Change Role", 1, "Failed to find user '{}' with the role '{}'".format( test_username, role ) )
