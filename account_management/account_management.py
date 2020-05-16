@@ -13,6 +13,7 @@ Brief : This file contains the definitions and functionalities for performing
 
 import argparse
 import sys
+import traceback
 
 import redfish
 import redfish_utilities
@@ -170,6 +171,7 @@ if __name__ == "__main__":
                 else:
                     results.update_test_results( "Delete User", 0, None )
             except:
+                traceback.print_exc()
                 results.update_test_results( "Delete User", 1, "Failed to delete user '{}'".format( test_username ) )
 
     # Save the results
