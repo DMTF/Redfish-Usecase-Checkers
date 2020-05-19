@@ -74,9 +74,9 @@ if __name__ == '__main__':
             if test_path is None:
                 print( "{} does not support PXE or USB boot override".format( system ) )
                 results.update_test_results( "Boot Check", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
-                results.update_test_results( "Continuous Boot Set", 0, "{} does not allow for PXE or USB boot override", skipped = True )
-                results.update_test_results( "Boot Set", 0, "{} does not allow for PXE or USB boot override", skipped = True )
-                results.update_test_results( "Boot Verify", 0, "{} does not allow for PXE or USB boot override", skipped = True )
+                results.update_test_results( "Continuous Boot Set", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
+                results.update_test_results( "Boot Set", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
+                results.update_test_results( "Boot Verify", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
                 continue
             results.update_test_results( "Boot Check", 0, None )
 
