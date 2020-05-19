@@ -74,38 +74,67 @@ if __name__ == '__main__':
             if test_path is None:
                 print( "{} does not support PXE or USB boot override".format( system ) )
                 results.update_test_results( "Boot Check", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
+                results.update_test_results( "Continuous Boot Set", 0, "{} does not allow for PXE or USB boot override", skipped = True )
+                results.update_test_results( "Boot Set", 0, "{} does not allow for PXE or USB boot override", skipped = True )
+                results.update_test_results( "Boot Verify", 0, "{} does not allow for PXE or USB boot override", skipped = True )
                 continue
             results.update_test_results( "Boot Check", 0, None )
 
+            # Check that Continuous is allowed to be applied to the boot override settings
+            print( "Setting {} to boot continuously from {}".format( system, test_path ) )
+            try:
+                redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = test_path, ov_enabled = "Continuous" )
+                boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
+                if boot_obj["BootSourceOverrideTarget"] != test_path and boot_obj["BootSourceOverrideEnabled"] != "Continuous":
+                    raise ValueError( "Boot object was not modified after PATCH" )
+                else:
+                    results.update_test_results( "Continuous Boot Set", 0, None )
+            except Exception as err:
+                print( "ERROR: Failed to set {} to continuously boot from {}!".format( system, test_path ) )
+                results.update_test_results( "Continuous Boot Set", 1, "Failed to set {} to continuously boot from {} ({})".format( system, test_path, err ) )
+
             # Set the boot object and verify the setting was applied
             print( "Setting {} to boot from {}".format( system, test_path ) )
-            redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = test_path, ov_enabled = "Once" )
-            boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
-            if boot_obj["BootSourceOverrideTarget"] != test_path and boot_obj["BootSourceOverrideEnabled"] != "Once":
-                print( "Failed to set {} to boot from {}!".format( system, test_path ) )
-                results.update_test_results( "Boot Set", 1, "{} was not set to boot from {}".format( system, test_path ) )
-            else:
-                results.update_test_results( "Boot Set", 0, None )
-
-                # Reset the system
-                print( "Resetting {}".format( system ) )
-                response = redfish_utilities.system_reset( redfish_obj, system )
-                response = redfish_utilities.poll_task_monitor( redfish_obj, response )
-                redfish_utilities.verify_response( response )
-
-                # Monitor the system to go back to None
-                print( "Monitoring boot progress for {}...".format( system ) )
-                for i in range( 0, 60 ):
-                    time.sleep( 1 )
-                    boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
-                    if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
-                        break
-                if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
-                    print( "{} booted from {}!".format( system, test_path ) )
-                    results.update_test_results( "Boot Verify", 0, None )
+            try:
+                redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = test_path, ov_enabled = "Once" )
+                boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
+                if boot_obj["BootSourceOverrideTarget"] != test_path and boot_obj["BootSourceOverrideEnabled"] != "Once":
+                    raise ValueError( "Boot object was not modified after PATCH" )
                 else:
-                    print( "{} failed to boot from {}!".format( system, test_path ) )
-                    results.update_test_results( "Boot Verify", 1, "{} did not reset back to 'Disabled'".format( system ) )
+                    results.update_test_results( "Boot Set", 0, None )
+
+                    # Reset the system
+                    print( "Resetting {}".format( system ) )
+                    try:
+                        response = redfish_utilities.system_reset( redfish_obj, system )
+                        response = redfish_utilities.poll_task_monitor( redfish_obj, response )
+                        redfish_utilities.verify_response( response )
+
+                        # Monitor the system to go back to None
+                        print( "Monitoring boot progress for {}...".format( system ) )
+                        for i in range( 0, 90 ):
+                            time.sleep( 1 )
+                            boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
+                            if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
+                                break
+                        if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
+                            print( "{} booted from {}!".format( system, test_path ) )
+                            results.update_test_results( "Boot Verify", 0, None )
+                        else:
+                            raise ValueError( "{} did not reset back to 'Disabled'".format( system ) )
+                    except Exception as err:
+                        print( "ERROR: {} failed to boot from {}!".format( system, test_path ) )
+                        results.update_test_results( "Boot Verify", 1, "{}".format( err) )
+            except Exception as err:
+                print( "ERROR: Failed to set {} to boot from {}!".format( system, test_path ) )
+                results.update_test_results( "Boot Set", 1, "Failed to set {} to boot from {} ({})".format( system, test_path, err ) )
+                results.update_test_results( "Boot Verify", 0, "Boot setting not applied", skipped = True )
+
+            # Cleanup (should be clean already if everything passed)
+            try:
+                redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = "None", ov_enabled = "Disabled")
+            except:
+                pass
 
     # Save the results
     results.write_results()
