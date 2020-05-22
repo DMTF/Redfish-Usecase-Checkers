@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.0.4] - 2020-05-22
+- Added check in one time boot test to verify 'Continuous' is allowed for configuring the boot object
+- Enhanced error reporting in one time boot test to make better use of exception handling for reporting test errors
+
 ## [1.0.3] - 2020-05-14
 - Increased minimum version of redfish_utilities to 1.0.6
 - Added a new check in the power/thermal test to verify sensors do not have bogus readings
