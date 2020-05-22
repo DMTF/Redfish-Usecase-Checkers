@@ -124,7 +124,7 @@ if __name__ == '__main__':
                             raise ValueError( "{} did not reset back to 'Disabled'".format( system ) )
                     except Exception as err:
                         print( "ERROR: {} failed to boot from {}!".format( system, test_path ) )
-                        results.update_test_results( "Boot Verify", 1, "{}".format( err) )
+                        results.update_test_results( "Boot Verify", 1, "{}".format( err ) )
             except Exception as err:
                 print( "ERROR: Failed to set {} to boot from {}!".format( system, test_path ) )
                 results.update_test_results( "Boot Set", 1, "Failed to set {} to boot from {} ({})".format( system, test_path, err ) )
@@ -132,7 +132,7 @@ if __name__ == '__main__':
 
             # Cleanup (should be clean already if everything passed)
             try:
-                redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = "None", ov_enabled = "Disabled")
+                redfish_utilities.set_system_boot( redfish_obj, system_id = system, ov_target = "None", ov_enabled = "Disabled" )
             except:
                 pass
 
