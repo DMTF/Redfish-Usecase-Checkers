@@ -67,15 +67,18 @@ if __name__ == "__main__":
             results.set_output_dir( args.directory )
 
         # Get the list of current users
-        user_list = redfish_utilities.get_users( redfish_obj )
-        user_count = len( user_list )
-        if user_count == 0:
-            results.update_test_results( "User Count", 1, "No users were found" )
-        else:
-            results.update_test_results( "User Count", 0, None )
-        usernames = []
-        for user in user_list:
-            usernames.append( user["UserName"] )
+        try:
+            usernames = []
+            user_list = redfish_utilities.get_users( redfish_obj )
+            for user in user_list:
+                usernames.append( user["UserName"] )
+            user_count = len( user_list )
+            if user_count == 0:
+                results.update_test_results( "User Count", 1, "No users were found." )
+            else:
+                results.update_test_results( "User Count", 0, None )
+        except Exception as err:
+            results.update_test_results( "User Count", 1, "Failed to get user list ({}).".format( err ) )
 
         # Determine a user name for testing
         for x in range( 1000 ):
@@ -85,6 +88,7 @@ if __name__ == "__main__":
 
         # Create a new user
         user_added = False
+        last_error = ""
         test_passwords = [ "hUPgd9Z4", "7jIl3dn!kd0Fql", "m5Ljed3!n0olvdS*m0kmWER15!" ]
         print( "Creating new user '{}'".format( test_username ) )
         for x in range( 3 ):
@@ -94,12 +98,12 @@ if __name__ == "__main__":
                 redfish_utilities.add_user( redfish_obj, test_username, test_password, "Administrator" )
                 user_added = True
                 break
-            except:
-                pass
+            except Exception as err:
+                last_error = err
         if user_added:
             results.update_test_results( "Add User", 0, None )
         else:
-            results.update_test_results( "Add User", 1, "Failed to add user '{}'".format( test_username ) )
+            results.update_test_results( "Add User", 1, "Failed to add user '{}' ({}).".format( test_username, last_error ) )
 
         # Only run the remaining tests if the user was added successfully
         if user_added:
@@ -107,7 +111,7 @@ if __name__ == "__main__":
             if verify_user( redfish_obj, test_username, role = "Administrator" ):
                 results.update_test_results( "Add User", 0, None )
             else:
-                results.update_test_results( "Add User", 1, "Failed to find user '{}' with the role 'Administrator'".format( test_username ) )
+                results.update_test_results( "Add User", 1, "Failed to find user '{}' with the role 'Administrator'.".format( test_username ) )
 
             # Check if the user needs to be enabled
             try:
@@ -116,11 +120,11 @@ if __name__ == "__main__":
                     if verify_user( redfish_obj, test_username, enabled = True ):
                         results.update_test_results( "Enable User", 0, None )
                     else:
-                        results.update_test_results( "Enable User", 1, "User '{}' not enabled after successful PATCH".format( test_username ) )
+                        results.update_test_results( "Enable User", 1, "User '{}' not enabled after successful PATCH.".format( test_username ) )
                 else:
-                    results.update_test_results( "Enable User", 0, "User '{}' already enabled by the service".format( test_username ), skipped = True )
-            except:
-                results.update_test_results( "Enable User", 1, "Failed to enable user '{}'".format( test_username ) )
+                    results.update_test_results( "Enable User", 0, "User '{}' already enabled by the service.".format( test_username ), skipped = True )
+            except Exception as err:
+                results.update_test_results( "Enable User", 1, "Failed to enable user '{}' ({}).".format( test_username, err ) )
 
             # Log in with the new user
             print( "Logging in as '{}'".format( test_username ) )
@@ -130,7 +134,7 @@ if __name__ == "__main__":
                 test_list = redfish_utilities.get_users( test_obj )
                 results.update_test_results( "Credential Check", 0, None )
             except:
-                results.update_test_results( "Credential Check", 1, "Failed to login with user '{}'".format( test_username ) )
+                results.update_test_results( "Credential Check", 1, "Failed to login with user '{}'.".format( test_username ) )
             finally:
                 test_obj.logout()
 
@@ -140,7 +144,7 @@ if __name__ == "__main__":
             try:
                 test_obj.login( auth = "session" )
                 test_list = redfish_utilities.get_users( test_obj )
-                results.update_test_results( "Credential Check", 1, "Login with user '{}' when using invalid credentials".format( test_username ) )
+                results.update_test_results( "Credential Check", 1, "Login with user '{}' when using invalid credentials.".format( test_username ) )
             except:
                 results.update_test_results( "Credential Check", 0, None )
             finally:
@@ -156,9 +160,9 @@ if __name__ == "__main__":
                     if verify_user( redfish_obj, test_username, role = role ):
                         results.update_test_results( "Change Role", 0, None )
                     else:
-                        results.update_test_results( "Change Role", 1, "Failed to find user '{}' with the role '{}'".format( test_username, role ) )
-                except:
-                    results.update_test_results( "Change Role", 1, "Failed to set user '{}' to '{}'".format( test_username, role ) )
+                        results.update_test_results( "Change Role", 1, "Failed to find user '{}' with the role '{}'.".format( test_username, role ) )
+                except Exception as err:
+                    results.update_test_results( "Change Role", 1, "Failed to set user '{}' to '{}' ({}).".format( test_username, role, err ) )
 
             # Delete the user
             try:
@@ -166,11 +170,11 @@ if __name__ == "__main__":
                 redfish_utilities.delete_user( redfish_obj, test_username )
                 results.update_test_results( "Delete User", 0, None )
                 if verify_user( redfish_obj, test_username ):
-                    results.update_test_results( "Delete User", 1, "User '{}' is still in the user list".format( test_username ) )
+                    results.update_test_results( "Delete User", 1, "User '{}' is still in the user list.".format( test_username ) )
                 else:
                     results.update_test_results( "Delete User", 0, None )
-            except:
-                results.update_test_results( "Delete User", 1, "Failed to delete user '{}'".format( test_username ) )
+            except Exception as err:
+                results.update_test_results( "Delete User", 1, "Failed to delete user '{}' ({}).".format( test_username, err ) )
 
     # Save the results
     results.write_results()

@@ -33,6 +33,7 @@ class Results(object):
         elif rc == 0:
             self.results["TestResults"][test_name]["pass"] += 1
         else:
+            print("ERROR: {}".format(msg))
             self.results["TestResults"][test_name]["fail"] += 1
             if "ErrorMessages" not in self.results["TestResults"]:
                 self.results["TestResults"].update({"ErrorMessages": []})

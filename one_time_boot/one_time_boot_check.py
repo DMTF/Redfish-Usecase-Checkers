@@ -73,10 +73,10 @@ if __name__ == '__main__':
                 test_path = "Pxe"
             if test_path is None:
                 print( "{} does not support PXE or USB boot override".format( system ) )
-                results.update_test_results( "Boot Check", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
-                results.update_test_results( "Continuous Boot Set", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
-                results.update_test_results( "Boot Set", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
-                results.update_test_results( "Boot Verify", 0, "{} does not allow for PXE or USB boot override".format( system ), skipped = True )
+                results.update_test_results( "Boot Check", 0, "{} does not allow for PXE or USB boot override.".format( system ), skipped = True )
+                results.update_test_results( "Continuous Boot Set", 0, "{} does not allow for PXE or USB boot override.".format( system ), skipped = True )
+                results.update_test_results( "Boot Set", 0, "{} does not allow for PXE or USB boot override.".format( system ), skipped = True )
+                results.update_test_results( "Boot Verify", 0, "{} does not allow for PXE or USB boot override.".format( system ), skipped = True )
                 continue
             results.update_test_results( "Boot Check", 0, None )
 
@@ -90,8 +90,7 @@ if __name__ == '__main__':
                 else:
                     results.update_test_results( "Continuous Boot Set", 0, None )
             except Exception as err:
-                print( "ERROR: Failed to set {} to continuously boot from {}!".format( system, test_path ) )
-                results.update_test_results( "Continuous Boot Set", 1, "Failed to set {} to continuously boot from {} ({})".format( system, test_path, err ) )
+                results.update_test_results( "Continuous Boot Set", 1, "Failed to set {} to continuously boot from {} ({}).".format( system, test_path, err ) )
 
             # Set the boot object and verify the setting was applied
             print( "Setting {} to boot from {}".format( system, test_path ) )
@@ -112,7 +111,7 @@ if __name__ == '__main__':
 
                         # Monitor the system to go back to None
                         print( "Monitoring boot progress for {}...".format( system ) )
-                        for i in range( 0, 90 ):
+                        for i in range( 0, 300 ):
                             time.sleep( 1 )
                             boot_obj = redfish_utilities.get_system_boot( redfish_obj, system )
                             if boot_obj["BootSourceOverrideEnabled"] == "Disabled":
@@ -123,12 +122,10 @@ if __name__ == '__main__':
                         else:
                             raise ValueError( "{} did not reset back to 'Disabled'".format( system ) )
                     except Exception as err:
-                        print( "ERROR: {} failed to boot from {}!".format( system, test_path ) )
-                        results.update_test_results( "Boot Verify", 1, "{}".format( err ) )
+                        results.update_test_results( "Boot Verify", 1, "{} failed to boot from {}.".format( system, test_path ) )
             except Exception as err:
-                print( "ERROR: Failed to set {} to boot from {}!".format( system, test_path ) )
-                results.update_test_results( "Boot Set", 1, "Failed to set {} to boot from {} ({})".format( system, test_path, err ) )
-                results.update_test_results( "Boot Verify", 0, "Boot setting not applied", skipped = True )
+                results.update_test_results( "Boot Set", 1, "Failed to set {} to boot from {} ({}).".format( system, test_path, err ) )
+                results.update_test_results( "Boot Verify", 0, "Boot setting not applied.", skipped = True )
 
             # Cleanup (should be clean already if everything passed)
             try:
