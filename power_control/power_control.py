@@ -54,47 +54,69 @@ if __name__ == '__main__':
         system_count = len( test_systems )
         print( "Found {} system instances".format( system_count ) )
         if system_count == 0:
-            results.update_test_results( "System Count", 1, "No system instances were found" )
+            results.update_test_results( "System Count", 1, "No system instances were found." )
         else:
             results.update_test_results( "System Count", 0, None )
 
         # Perform a test on each system found
         for system in test_systems:
             # Check what types of resets are supported
-            reset_types = None
-            reset_uri, reset_params = redfish_utilities.get_system_reset_info( redfish_obj, system["Id"] )
+            try:
+                reset_types = None
+                reset_uri, reset_params = redfish_utilities.get_system_reset_info( redfish_obj, system["Id"] )
+            except Exception as err:
+                results.update_test_results( "Reset Type Check", 1, "Could not get reset info for {} ({}).".format( system["Id"], err ) )
+                continue
+
             for param in reset_params:
                 if param["Name"] == "ResetType":
                     reset_types = param["AllowableValues"]
             if reset_types is None:
-                print( "{} is not advertising any allowable resets".format( system["Id"] ) )
-                results.update_test_results( "Reset Type Check", 1, "{} is not advertising any allowable resets".format( system["Id"] ) )
+                results.update_test_results( "Reset Type Check", 1, "{} is not advertising any allowable resets.".format( system["Id"] ) )
                 continue
             results.update_test_results( "Reset Type Check", 0, None )
 
             # Reset the system
             for reset_type in reset_types:
+                if reset_type == "Nmi":
+                    # NMI could fail depending on the state of the system; no real reason to test this at this time
+                    continue
                 print( "Resetting {} using {}".format( system["Id"], reset_type ) )
-                response = redfish_utilities.system_reset( redfish_obj, system["Id"] )
-                response = redfish_utilities.poll_task_monitor( redfish_obj, response )
-                redfish_utilities.verify_response( response )
-                results.update_test_results( "Reset Performed", 0, None )
+                try:
+                    response = redfish_utilities.system_reset( redfish_obj, system["Id"], reset_type )
+                    response = redfish_utilities.poll_task_monitor( redfish_obj, response )
+                    redfish_utilities.verify_response( response )
+                    results.update_test_results( "Reset Performed", 0, None )
+                except Exception as err:
+                    results.update_test_results( "Reset Performed", 1, "Failed to reset {} using {} ({})".format( system["Id"], reset_type, err ) )
+                    continue
+
+                # Allow some time before checking the power state
+                # We also might skip the PowerState check and want to allow for the system to settle before performing another reset
+                time.sleep( 10 )
 
                 # Check the power state to ensure it's in the proper state
                 exp_power_state = "On"
                 if reset_type == "ForceOff" or reset_type == "GracefulShutdown":
                     exp_power_state = "Off"
-                system_info = redfish_obj.get( system["URI"] )
-                if "PowerState" in system_info.dict:
-                    if system_info.dict["PowerState"] != exp_power_state:
-                        results.update_test_results( "Power State Check", 1, "{} was not in the {} state after using {} as the reset type".format( system["Id"], exp_power_state, reset_type ) )
+                if reset_type == "PushPowerButton":
+                    # Depending on the system design, pushing the button can have different outcomes with regards to the power state
+                    continue
+                print( "Monitoring power state for {}...".format( system["Id"] ) )
+                power_state = None
+                for i in range( 0, 10 ):
+                    system_info = redfish_obj.get( system["URI"] )
+                    power_state = system_info.dict.get( "PowerState" )
+                    if power_state is None or power_state == exp_power_state:
+                        break
+                    time.sleep( 5 )
+                if power_state is not None:
+                    if power_state != exp_power_state:
+                        results.update_test_results( "Power State Check", 1, "{} was not in the {} state after using {} as the reset type.".format( system["Id"], exp_power_state, reset_type ) )
                     else:
                         results.update_test_results( "Power State Check", 0, None )
                 else:
-                    results.update_test_results( "Power State Check", 0, "{} does not contain the PowerState property".format( system["Id"] ), skipped = True )
-
-                # Allow some time before the next reset
-                time.sleep( 5 )
+                    results.update_test_results( "Power State Check", 0, "{} does not contain the PowerState property.".format( system["Id"] ), skipped = True )
 
     # Save the results
     results.write_results()

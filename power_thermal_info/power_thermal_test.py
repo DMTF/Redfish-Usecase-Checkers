@@ -44,7 +44,16 @@ if __name__ == '__main__':
             results.set_output_dir( args.directory )
 
         # Fetch the sensors
-        sensors = redfish_utilities.get_sensors( redfish_obj )
+        sensors = None
+        try:
+            sensors = redfish_utilities.get_sensors( redfish_obj )
+        except Exception as err:
+            results.update_test_results( "Chassis Count", 1, "Failed to collect sensor information ({}).".format( err ) )
+
+    # Exit early if nothing could be returned
+    if sensors is None:
+        results.write_results()
+        sys.exit( results.get_return_code() )
 
     # Print the data received
     redfish_utilities.print_sensors( sensors )
@@ -53,7 +62,7 @@ if __name__ == '__main__':
     chassis_count = len( sensors )
     print( "Found {} chassis instances".format( chassis_count ) )
     if chassis_count == 0:
-        results.update_test_results( "Chassis Count", 1, "No chassis instances were found" )
+        results.update_test_results( "Chassis Count", 1, "No chassis instances were found." )
     else:
         results.update_test_results( "Chassis Count", 0, None )
 
@@ -62,7 +71,7 @@ if __name__ == '__main__':
         sensor_count = len( chassis["Readings"] )
         print( "Found {} sensors in Chassis '{}'".format( sensor_count, chassis["ChassisName"] ) )
         if sensor_count == 0:
-            results.update_test_results( "Sensor Count", 1, "No sensors were found in Chassis '{}'".format( chassis["ChassisName"] ) )
+            results.update_test_results( "Sensor Count", 1, "No sensors were found in Chassis '{}'.".format( chassis["ChassisName"] ) )
         else:
             results.update_test_results( "Sensor Count", 0, None )
 
@@ -75,10 +84,8 @@ if __name__ == '__main__':
                 if reading["State"] != "Enabled" and reading["Reading"] != reading["State"]:
                     # When State is not Enabled, Reading is supposed to be a copy of State
                     # The only time this is not true is if there is a bogus reading, such as reporting "0V" when a device is absent
-                    error_string = "Sensor '{}' in chassis '{}' contains reading '{}', but is in state '{}'.".format(
-                        chassis["ChassisName"], reading["Name"], reading["Reading"], reading["State"] )
-                    print( error_string )
-                    results.update_test_results( "Sensor State", 1, error_string )
+                    results.update_test_results( "Sensor State", 1, "Sensor '{}' in chassis '{}' contains reading '{}', but is in state '{}'.".format(
+                        reading["Name"], chassis["ChassisName"], reading["Reading"], reading["State"] ) )
                 else:
                     results.update_test_results( "Sensor State", 0, None )
 
