@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.5] - 2020-07-06
+- Modified all tests to make better use of exception handling for consistent error reporting
+- Fixed power control test where the reset type being tested was not being provided to the service
+- Made enhancement to the power control test to add more intelligence in the 'PowerState' checking
+
 ## [1.0.4] - 2020-05-22
 - Added check in one time boot test to verify 'Continuous' is allowed for configuring the boot object
 - Enhanced error reporting in one time boot test to make better use of exception handling for reporting test errors
