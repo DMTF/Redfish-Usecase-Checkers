@@ -1,14 +1,16 @@
-Copyright 2017-2019 Distributed Management Task Force, Inc. All rights reserved.
+# Redfish Usecase Checkers
 
-# Redfish-Usecase-Checkers
+Copyright 2017-2021 DMTF.  All rights reserved.
+
+## About
 
         Language: Python 3.x
         
 This is a collection of tools to exercise and validate common use cases for DMTF Redfish.
 For example:
-* Issue system reset commands (On, GracefulShutdown, GracefulRestart, etc.)
-* Issue PATCH requests for BootOverride modes, modifying BIOS/UEFI boot sequence
-* Add/modify/delete Account users and roles
+* Issue system reset commands (`On`, `GracefulShutdown`, `GracefulRestart`, etc.)
+* Issue PATCH requests for boot override modes, modifying BIOS/UEFI boot sequence
+* Add/modify/delete user accounts
 
 
 ## Prerequisites
@@ -24,12 +26,12 @@ pip install redfish_utilities
 
 ## Test Details and Examples
 
-Each tool may be ran with -h, for verbose help on parameters.
+Each tool may be execuated with the `-h` option to get verbose help on parameters.
 
 
 ### One Time Boot Checker
 
-This checker logs into a specified service and traverses the `Systems` collection.
+This checker logs into a specified service and traverses the systems collection.
 It will perform the following operations on all systems:
 * Reads the `Boot` object
 * Sets the `BootSourceOverrideTarget` property to either `Pxe` or `Usb`, depending on what's allowed
@@ -44,7 +46,7 @@ $ python3 one_time_boot_check.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 
 ### Power/Thermal Info Checker
 
-This checker logs into a specified service and traverses the `Chassis` collection.
+This checker logs into a specified service and traverses the chassis collection.
 For each chassis found, it will ensure that it can collect at least one sensor reading from the `Power` and `Thermal` resources.
 For each sensor reading found, it will ensure that the readings are consistent with the state of the sensor, as in there are no bogus readings for a device that isn't present.
 
@@ -56,7 +58,7 @@ $ python3 power_thermal_test.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 
 ### Power Control Checker
 
-This checker logs into a specified service and traverses the `Systems` collection.
+This checker logs into a specified service and traverses the systems collection.
 It will perform the following operations on all systems:
 * Reads the allowable `ResetType` parameter values
 * Performs a reset using each of the allowable `ResetType` values
