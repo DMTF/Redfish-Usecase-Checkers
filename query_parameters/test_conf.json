@@ -1,0 +1,5 @@
+{
+  "test": {
+    "command": "$interpreter query_parameters_check.py -r $target_system -u $username -p $password -S $https -d $output_subdir"
+  }
+}
