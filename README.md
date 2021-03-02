@@ -81,3 +81,18 @@ Example:
 ```
 $ python3 account_management.py --r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 ```
+
+
+### Query Parameter Checker
+
+This checker logs into a specified service and performs the following operations:
+* Inspects the `ProtocolFeatures` property to see what query parameters are supported
+* Tests `$filter` on the role collection within the account service
+* Tests `$select` on a role within the role collection within the account service
+* Tests `$expand` on service root
+* Tests `only` on various resources found on service root
+
+Example:
+```
+$ python3 query_parameters_check.py --r 127.0.0.1:8000 -u <user> -p <pass> -S Always
+```
