@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.6] - 2021-03-02
+- Added query parameters checker
+
 ## [1.0.5] - 2020-07-06
 - Modified all tests to make better use of exception handling for consistent error reporting
 - Fixed power control test where the reset type being tested was not being provided to the service
