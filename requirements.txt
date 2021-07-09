@@ -1,3 +1,3 @@
 jsonschema
 redfish>=3.0.0
-redfish_utilities>=1.0.7
+redfish_utilities>=1.1.4

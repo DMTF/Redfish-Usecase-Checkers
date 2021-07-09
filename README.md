@@ -58,7 +58,7 @@ $ python3 power_thermal_test.py -r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 
 ### Power Control Checker
 
-This checker logs into a specified service and traverses the systems collection.
+This checker logs into a specified service and traverses the system collection.
 It will perform the following operations on all systems:
 * Reads the allowable `ResetType` parameter values
 * Performs a reset using each of the allowable `ResetType` values
@@ -95,4 +95,19 @@ This checker logs into a specified service and performs the following operations
 Example:
 ```
 $ python3 query_parameters_check.py --r 127.0.0.1:8000 -u <user> -p <pass> -S Always
+```
+
+
+### Manager Ethernet Interface Checker
+
+This checker logs into a specified service and traverses the Ethernet interface collection in each manager found in the manager collection.
+It will perform the following operations on all Ethernet interfaces:
+* Inspects array properties to ensure `null` is used to show empty slots that a client is allowed to configure
+* Inspects string properties containing IP addresses to ensure invalid addresses, such as `0.0.0.0`, are not used
+* Inspects IPv4 address properties to ensure `Gateway` is only present in the first array index
+* Ensures the minimum number of expected properties for configuring VLANs and IP addresses are present
+
+Example:
+```
+$ python3 manager_ethernet_interface_check.py --r 127.0.0.1:8000 -u <user> -p <pass> -S Always
 ```
