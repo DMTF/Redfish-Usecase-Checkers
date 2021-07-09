@@ -1,0 +1,5 @@
+{
+  "test": {
+    "command": "$interpreter manager_ethernet_interface_check.py -r $target_system -u $username -p $password -S $https -d $output_subdir"
+  }
+}
