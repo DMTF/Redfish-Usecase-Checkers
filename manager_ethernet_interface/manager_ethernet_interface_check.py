@@ -139,6 +139,10 @@ if __name__ == '__main__':
                         # Check for expected IPv4 properties
                         if property in property_ip_list:
                             for i, address in enumerate( interface_resp.dict[property] ):
+                                # Skip null entries
+                                if address is None:
+                                    continue
+
                                 # Check that there is only a Gateway for index 0
                                 if "IPv4" in property:
                                     if "Gateway" in address and i != 0:
