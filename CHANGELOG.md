@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.7] - 2021-08-06
+- Added manager Ethernet interface checker
+
 ## [1.0.6] - 2021-03-02
 - Added query parameters checker
 
