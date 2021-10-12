@@ -195,7 +195,7 @@ def expand_test( redfish_obj, service_root, results ):
     expand_checks = [
         { "Term": "ExpandAll", "Query": { "$expand": "*" }, "Sub": True, "Links": True },
         { "Term": "NoLinks", "Query": { "$expand": "." }, "Sub": True, "Links": False },
-        { "Term": "Links", "Query": { "$expand": "!" }, "Sub": False, "Links": True },
+        { "Term": "Links", "Query": { "$expand": "~" }, "Sub": False, "Links": True },
         { "Term": "ExpandAll", "Query": { "$expand": "*($levels=1)" }, "Sub": True, "Links": True },
         { "Term": "NoLinks", "Query": { "$expand": ".($levels=1)" }, "Sub": True, "Links": False },
         { "Term": "Links", "Query": { "$expand": "~($levels=1)" }, "Sub": False, "Links": True }
