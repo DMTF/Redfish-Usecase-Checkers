@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.0.8] - 2021-10-22
+- Corrected the '$expand' argument for 'Links' in the query parameter checker
+- Added check for the support of '$levels' prior to testing in the query parameter checker
+
 ## [1.0.7] - 2021-08-06
 - Added manager Ethernet interface checker
 
