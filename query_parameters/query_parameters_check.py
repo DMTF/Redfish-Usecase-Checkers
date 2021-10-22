@@ -193,12 +193,12 @@ def expand_test( redfish_obj, service_root, results ):
     """
 
     expand_checks = [
-        { "Term": "ExpandAll", "Query": { "$expand": "*" }, "Sub": True, "Links": True },
-        { "Term": "NoLinks", "Query": { "$expand": "." }, "Sub": True, "Links": False },
-        { "Term": "Links", "Query": { "$expand": "!" }, "Sub": False, "Links": True },
-        { "Term": "ExpandAll", "Query": { "$expand": "*($levels=1)" }, "Sub": True, "Links": True },
-        { "Term": "NoLinks", "Query": { "$expand": ".($levels=1)" }, "Sub": True, "Links": False },
-        { "Term": "Links", "Query": { "$expand": "~($levels=1)" }, "Sub": False, "Links": True }
+        { "Term": "ExpandAll", "Query": { "$expand": "*" }, "Sub": True, "Links": True, "Levels": False },
+        { "Term": "NoLinks", "Query": { "$expand": "." }, "Sub": True, "Links": False, "Levels": False },
+        { "Term": "Links", "Query": { "$expand": "~" }, "Sub": False, "Links": True, "Levels": False },
+        { "Term": "ExpandAll", "Query": { "$expand": "*($levels=1)" }, "Sub": True, "Links": True, "Levels": True },
+        { "Term": "NoLinks", "Query": { "$expand": ".($levels=1)" }, "Sub": True, "Links": False, "Levels": True },
+        { "Term": "Links", "Query": { "$expand": "~($levels=1)" }, "Sub": False, "Links": True, "Levels": True }
     ]
 
     # Go through each of the different expand types
@@ -206,6 +206,10 @@ def expand_test( redfish_obj, service_root, results ):
     for check in expand_checks:
         if not service_root.dict["ProtocolFeaturesSupported"]["ExpandQuery"].get( check["Term"], False ):
             results.update_test_results( "Expand Check", 0, "{} not supported.".format( check["Term"] ), skipped = True )
+            continue
+
+        if not service_root.dict["ProtocolFeaturesSupported"]["ExpandQuery"].get( "Levels", False ) and check["Levels"]:
+            results.update_test_results( "Expand Check", 0, "Levels not supported on $expand".format( check["Term"] ), skipped = True )
             continue
 
         # Perform the query on service root
