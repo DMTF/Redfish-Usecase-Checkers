@@ -30,6 +30,7 @@ if __name__ == '__main__':
     argget.add_argument( "--rhost", "-r", type = str, required = True, help = "The address of the Redfish service" )
     argget.add_argument( "--Secure", "-S", type = str, default = "Always", help = "When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)" )
     argget.add_argument( "--directory", "-d", type = str, default = None, help = "Output directory for results.json" )
+    argget.add_argument( "--timeout", "-t", type = int, default = 10, help = "Length of each timeout after reset" )
     args = argget.parse_args()
 
     # Set up the Redfish object
@@ -93,7 +94,7 @@ if __name__ == '__main__':
 
                 # Allow some time before checking the power state
                 # We also might skip the PowerState check and want to allow for the system to settle before performing another reset
-                time.sleep( 10 )
+                time.sleep( args.timeout )
 
                 # Check the power state to ensure it's in the proper state
                 exp_power_state = "On"
