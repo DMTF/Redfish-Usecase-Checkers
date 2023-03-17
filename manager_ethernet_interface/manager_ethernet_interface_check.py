@@ -1,7 +1,7 @@
 #! /usr/bin/python3
 # Copyright Notice:
 # Copyright 2021 DMTF. All rights reserved.
-# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/master/LICENSE.md
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/main/LICENSE.md
 
 """
 Manager Ethernet Interface Usecase Test
