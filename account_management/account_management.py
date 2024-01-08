@@ -12,6 +12,7 @@ Brief : This file contains the definitions and functionalities for performing
 """
 
 import argparse
+import datetime
 import sys
 
 import redfish
