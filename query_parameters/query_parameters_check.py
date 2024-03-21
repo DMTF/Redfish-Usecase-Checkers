@@ -13,6 +13,8 @@ Brief : This file contains the definitions and functionalities for performing
 """
 
 import argparse
+import datetime
+import logging
 import sys
 import time
 
@@ -297,7 +299,14 @@ if __name__ == '__main__':
     argget.add_argument( "--rhost", "-r", type = str, required = True, help = "The address of the Redfish service" )
     argget.add_argument( "--Secure", "-S", type = str, default = "Always", help = "When to use HTTPS (Always, IfSendingCredentials, IfLoginOrAuthenticatedApi, Never)" )
     argget.add_argument( "--directory", "-d", type = str, default = None, help = "Output directory for results.json" )
+    argget.add_argument( "--debug", action = "store_true", help = "Creates debug file showing HTTP traces and exceptions" )
     args = argget.parse_args()
+
+    if args.debug:
+        log_file = "query_parameters_check-{}.log".format( datetime.datetime.now().strftime( "%Y-%m-%d-%H%M%S" ) )
+        log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        logger = redfish.redfish_logger( log_file, log_format, logging.DEBUG )
+        logger.info( "query_parameters_check Trace" )
 
     # Set up the Redfish object
     base_url = "https://" + args.rhost
