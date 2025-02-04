@@ -349,9 +349,9 @@ def boot_test_one_time_boot_check(sut: SystemUnderTest, systems: list, check_sys
             sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to reset system '{}' ({}).".format(system["Id"], err))
 
         # Monitor the system to go back to None
+        operation = "Monitoring the boot progress for system '{}'".format(system["Id"])
+        logger.logger.info(operation)
         if reset_success:
-            operation = "Monitoring the boot progress for system '{}'".format(system["Id"])
-            logger.logger.info(operation)
             try:
                 # Poll the boot object for up to 300 seconds
                 for i in range(0, 30):
