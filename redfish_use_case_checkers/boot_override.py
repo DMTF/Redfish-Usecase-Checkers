@@ -163,6 +163,23 @@ def boot_test_boot_check(sut: SystemUnderTest, systems: list):
             sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "System '{}' contains 'BootSourceOverrideTarget' or 'BootSourceOverrideEnabled', but not both.".format(system["Id"]))
             boot_override_params.append(None)
 
+        # Check if the boot object contains other properties as needed by the allowable boot override targets
+        boot_override_targets = ["UefiTarget", "UefiHttp", "UefiBootNext"]
+        boot_override_properties = ["UefiTargetBootSourceOverride", "HttpBootUri", "BootNext"]
+        for target, prop in zip(boot_override_targets, boot_override_properties):
+            operation = "Checking that the 'Boot' property in system '{}' contains the '{}' property".format(system["Id"], target)
+            logger.logger.info(operation)
+            if "BootSourceOverrideTarget@Redfish.AllowableValues" not in system["Boot"]:
+                sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not contain 'BootSourceOverrideTarget@Redfish.AllowableValues'.".format(system["Id"]))
+                continue
+            if target in system["Boot"]["BootSourceOverrideTarget@Redfish.AllowableValues"]:
+                if prop not in system["Boot"]:
+                    sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "System '{}' supports boot override to '{}' but does not contain '{}'.".format(system["Id"], target, prop))
+                else:
+                    sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
+            else:
+                sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not support boot override to '{}'.".format(system["Id"], target))
+
     logger.log_use_case_test_footer(CAT_NAME, test_name)
     return boot_override_params
 
