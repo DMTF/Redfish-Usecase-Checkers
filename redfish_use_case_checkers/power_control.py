@@ -23,6 +23,7 @@ CAT_NAME = "Power Control"
 TEST_SYSTEM_COUNT = ("System Count", "Verifies the system list is not empty", "Locates the ComputerSystemCollection resource and performs GET on all members.")
 TEST_RESET_TYPE = ("Reset Type", "Verifies the each system reports supported reset types", "Inspects the Reset action for each system for the supported reset types.")
 TEST_RESET_OPERATION = ("Reset Operation", "Verifies that a system can be reset", "Performs a POST operation on the Reset action on the ComputerSystem resource.  Performs a GET on the ComputerSystem resource and verifies it's in the desired power state.")
+TEST_LIST = [TEST_SYSTEM_COUNT, TEST_RESET_TYPE, TEST_RESET_OPERATION]
 
 def use_cases(sut: SystemUnderTest):
     """
@@ -35,14 +36,12 @@ def use_cases(sut: SystemUnderTest):
     logger.log_use_case_category_header(CAT_NAME)
 
     # Set initial results
-    sut.add_results_category(CAT_NAME, [TEST_SYSTEM_COUNT, TEST_RESET_TYPE, TEST_RESET_OPERATION])
+    sut.add_results_category(CAT_NAME, TEST_LIST)
 
     # Check that there is a system collection
     if "Systems" not in sut.service_root:
-        msg = "Service does not contain a system collection."
-        sut.add_test_result(CAT_NAME, TEST_SYSTEM_COUNT[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_RESET_TYPE[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_RESET_OPERATION[0], "", "SKIP", msg)
+        for test in TEST_LIST:
+            sut.add_test_result(CAT_NAME, test[0], "", "SKIP", "Service does not contain a system collection.")
         logger.log_use_case_category_footer(CAT_NAME)
         return
 
@@ -75,24 +74,24 @@ def power_test_system_count(sut: SystemUnderTest):
     try:
         system_ids = redfish_utilities.get_system_ids(sut.session)
         if len(system_ids) == 0:
-            sut.add_test_result(CAT_NAME,test_name, operation, "FAIL", "No systems were found.")
+            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "No systems were found.")
         else:
-            sut.add_test_result(CAT_NAME,test_name, operation, "PASS")
+            sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
     except Exception as err:
-        sut.add_test_result(CAT_NAME,test_name, operation, "FAIL", "Failed to get the system list ({}).".format(err))
+        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to get the system list ({}).".format(err))
 
     # Get each member of the system collection
     for member in system_ids:
+        operation = "Getting system '{}'".format(member)
+        logger.logger.info(operation)
         try:
-            operation = "Getting system '{}'".format(member)
-            logger.logger.info(operation)
             system_resp = redfish_utilities.get_system(sut.session, member)
             systems.append(system_resp.dict)
-            sut.add_test_result(CAT_NAME,test_name, operation, "PASS")
+            sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
         except Exception as err:
-            sut.add_test_result(CAT_NAME,test_name, operation, "FAIL", "Failed to get the system '{}' ({}).".format(member, err))
+            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to get the system '{}' ({}).".format(member, err))
 
-    logger.log_use_case_test_footer(CAT_NAME,test_name)
+    logger.log_use_case_test_footer(CAT_NAME, test_name)
     return systems
 
 
@@ -133,7 +132,7 @@ def power_test_reset_type(sut: SystemUnderTest, systems: list):
                     reset_types = param["AllowableValues"]
                     reset_capabilities[system["Id"]] = reset_types
             if reset_types is None:
-                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "System '{}' does not report supported reset types.".format(system["Id"]))
+                sut.add_test_result(CAT_NAME, test_name, operation, "FAILWARN", "System '{}' does not report supported reset types.".format(system["Id"]))
             else:
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
         except Exception as err:
@@ -184,7 +183,7 @@ def power_test_reset_operation(sut: SystemUnderTest, systems: list, reset_capabi
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
                 reset_success[system["Id"]] = True
             except Exception as err:
-                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to reset system '{}' ({}).".format(system["Id"], err))
+                sut.add_test_result(CAT_NAME, test_name, operation, "FAILWARN", "Failed to reset system '{}' ({}).".format(system["Id"], err))
 
         # Wait for all systems to reset
         time.sleep(10)

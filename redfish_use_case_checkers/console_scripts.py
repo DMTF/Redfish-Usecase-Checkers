@@ -23,6 +23,7 @@ from redfish_use_case_checkers.system_under_test import SystemUnderTest
 from redfish_use_case_checkers import account_management
 from redfish_use_case_checkers import boot_override
 from redfish_use_case_checkers import logger
+from redfish_use_case_checkers import manager_ethernet_interfaces
 from redfish_use_case_checkers import power_control
 from redfish_use_case_checkers import report
 
@@ -39,6 +40,7 @@ def main():
     argget.add_argument("--password", "-p", type=str, required=True, help="The password for authentication")
     argget.add_argument("--rhost", "-r", type=str, required=True, help="The address of the Redfish service (with scheme)")
     argget.add_argument("--report-dir", type=str, default="reports", help="the directory for generated report files (default: 'reports')")
+    argget.add_argument("--relaxed", action="store_true", help="Allows for some failures to be logged as warnings; useful if the criteria is to meet the literal 'shall' statements in the specification.")
     argget.add_argument("--debugging", action="store_true", help="Controls the verbosity of the debugging output; if not specified only INFO and higher are logged.")
     args = argget.parse_args()
 
@@ -65,12 +67,13 @@ def main():
     print()
 
     # Set up the system
-    sut = SystemUnderTest(args.rhost, args.user, args.password)
+    sut = SystemUnderTest(args.rhost, args.user, args.password, args.relaxed)
 
     # Run the tests
     account_management.use_cases(sut)
     power_control.use_cases(sut)
     boot_override.use_cases(sut)
+    manager_ethernet_interfaces.use_cases(sut)
 
     # Log out
     sut.logout()

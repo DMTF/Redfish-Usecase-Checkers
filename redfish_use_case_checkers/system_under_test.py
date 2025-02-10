@@ -8,7 +8,7 @@ import redfish_utilities
 from redfish_use_case_checkers import logger
 
 class SystemUnderTest(object):
-    def __init__(self, rhost, username, password):
+    def __init__(self, rhost, username, password, relaxed):
         """
         Constructor for new system under test
 
@@ -16,9 +16,11 @@ class SystemUnderTest(object):
             rhost: The address of the Redfish service (with scheme)
             username: The username for authentication
             password: The password for authentication
+            relaxed: Whether or not to apply relaxed testing criteria
         """
         self._rhost = rhost
         self._username = username
+        self._relaxed = relaxed
         self._redfish_obj = redfish.redfish_client(base_url=rhost, username=username, password=password, timeout=15, max_retry=3)
         self._redfish_obj.login(auth="session")
         self._service_root = self._redfish_obj.root_resp.dict
@@ -202,12 +204,14 @@ class SystemUnderTest(object):
                         test["Results"].append({"Operation": operation, "Result": result, "Message": msg})
                         if result == "PASS":
                             self._pass_count += 1
-                        elif result == "WARN":
+                        elif result == "WARN" or (result == "FAILWARN" and self._relaxed is True):
                             logger.logger.warn("Warning occurred during the {} test...".format(test_name))
+                            test["Results"][-1]["Result"] = "WARN"
                             logger.logger.warn(msg)
                             self._warn_count += 1
-                        elif result == "FAIL":
+                        elif result == "FAIL" or result == "FAILWARN":
                             logger.logger.error("Failing the {} test...".format(test_name))
+                            test["Results"][-1]["Result"] = "FAIL"
                             logger.logger.error(msg)
                             self._fail_count += 1
                         elif result == "SKIP":

@@ -25,6 +25,7 @@ TEST_ENABLE_USER = ("Enable User", "Verifies that a user can be enabled", "Perfo
 TEST_CREDENTIAL_CHECK = ("Credential Check", "Verifies the credentials of the new user are correctly enforced", "Creates a new Redfish session with the new user account.  Attempts to read the members of the ManagerAccountCollection resource with the new session.")
 TEST_CHANGE_ROLE = ("Change Role", "Verifies that user roles can be modified", "Performs PATCH operations on the ManagerAccount resource of the new account to change the role.  Performs a GET on the ManagerAccount resource and verifies the role was changed as requested.")
 TEST_DELETE_USER = ("Delete User", "Verifies that a user can be deleted", "Performs a DELETE operation on the ManagerAccount resource of the new account.  Reads the members of the ManagerAccountCollection resource and verifies the user was deleted.")
+TEST_LIST = [TEST_USER_COUNT, TEST_ADD_USER, TEST_ENABLE_USER, TEST_CREDENTIAL_CHECK, TEST_CHANGE_ROLE, TEST_DELETE_USER]
 
 def use_cases(sut: SystemUnderTest):
     """
@@ -37,17 +38,12 @@ def use_cases(sut: SystemUnderTest):
     logger.log_use_case_category_header(CAT_NAME)
 
     # Set initial results
-    sut.add_results_category(CAT_NAME, [TEST_USER_COUNT, TEST_ADD_USER, TEST_ENABLE_USER, TEST_CREDENTIAL_CHECK, TEST_CHANGE_ROLE, TEST_DELETE_USER])
+    sut.add_results_category(CAT_NAME, TEST_LIST)
 
     # Check that there is an account service
     if "AccountService" not in sut.service_root:
-        msg = "Service does not contain an account service."
-        sut.add_test_result(CAT_NAME, TEST_USER_COUNT[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_ADD_USER[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_ENABLE_USER[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_CREDENTIAL_CHECK[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_CHANGE_ROLE[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_DELETE_USER[0], "", "SKIP", msg)
+        for test in TEST_LIST:
+            sut.add_test_result(CAT_NAME, test[0], "", "SKIP", "Service does not contain an account service.")
         logger.log_use_case_category_footer(CAT_NAME)
         return
 
@@ -272,9 +268,9 @@ def acc_test_change_role(sut: SystemUnderTest, user_added: bool, username: str):
     # Change the role of the user
     test_roles = ["ReadOnly", "Operator", "Administrator"]
     for role in test_roles:
+        operation = "Setting user '{}' to role '{}'".format(username, role)
+        logger.logger.info(operation)
         try:
-            operation = "Setting user '{}' to role '{}'".format(username, role)
-            logger.logger.info(operation)
             redfish_utilities.modify_user(sut.session, username, new_role=role)
             if verify_user( sut.session, username, role = role ):
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
@@ -305,9 +301,9 @@ def acc_test_delete_user(sut: SystemUnderTest, user_added: bool, username: str):
         return
 
     # Delete the user
+    operation = "Deleting user '{}'".format(username)
+    logger.logger.info(operation)
     try:
-        operation = "Deleting user '{}'".format(username)
-        logger.logger.info(operation)
         redfish_utilities.delete_user(sut.session, username)
         if verify_user(sut.session, username):
             sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "User '{}' is still in the user list after successful DELETE.".format(username))

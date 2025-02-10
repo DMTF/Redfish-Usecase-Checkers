@@ -26,6 +26,7 @@ TEST_CONTINUOUS_BOOT_SETTING = ("Continuous Boot Override", "Verifies the boot o
 TEST_ONE_TIME_BOOT_SETTING = ("One-Time Boot Override", "Verifies the boot override supports the 'one-time' mode", "Performs a PATCH on the ComputerSystem resource to set the boot override to 'one-time' mode.  Performs a GET on the ComputerSystem resource to verify the requested settings were applied.")
 TEST_ONE_TIME_BOOT_CHECK = ("One-Time Boot Override Check", "Verifies the one-time boot override is performed", "Performs a POST to the Reset action on the ComputerSystem resource.  Monitors the boot override mode transitions back to 'disabled' after the reset.")
 TEST_DISABLE_BOOT_SETTING = ("Disable Boot Override", "Verifies the boot override can be disabled", "Performs a PATCH on the ComputerSystem resource to set the boot override to 'disabled' mode.  Performs a GET on the ComputerSystem resource to verify the requested settings were applied.")
+TEST_LIST = [TEST_SYSTEM_COUNT, TEST_BOOT_OVERRIDE_CHECK, TEST_CONTINUOUS_BOOT_SETTING, TEST_ONE_TIME_BOOT_SETTING, TEST_ONE_TIME_BOOT_CHECK, TEST_DISABLE_BOOT_SETTING]
 
 def use_cases(sut: SystemUnderTest):
     """
@@ -38,17 +39,12 @@ def use_cases(sut: SystemUnderTest):
     logger.log_use_case_category_header(CAT_NAME)
 
     # Set initial results
-    sut.add_results_category(CAT_NAME, [TEST_SYSTEM_COUNT, TEST_BOOT_OVERRIDE_CHECK, TEST_CONTINUOUS_BOOT_SETTING, TEST_ONE_TIME_BOOT_SETTING, TEST_ONE_TIME_BOOT_CHECK, TEST_DISABLE_BOOT_SETTING])
+    sut.add_results_category(CAT_NAME, TEST_LIST)
 
     # Check that there is a system collection
     if "Systems" not in sut.service_root:
-        msg = "Service does not contain a system collection."
-        sut.add_test_result(CAT_NAME, TEST_SYSTEM_COUNT[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_BOOT_OVERRIDE_CHECK[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_CONTINUOUS_BOOT_SETTING[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_ONE_TIME_BOOT_SETTING[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_ONE_TIME_BOOT_CHECK[0], "", "SKIP", msg)
-        sut.add_test_result(CAT_NAME, TEST_DISABLE_BOOT_SETTING[0], "", "SKIP", msg)
+        for test in TEST_LIST:
+            sut.add_test_result(CAT_NAME, test[0], "", "SKIP", "Service does not contain a system collection.")
         logger.log_use_case_category_footer(CAT_NAME)
         return
 
@@ -92,9 +88,9 @@ def boot_test_system_count(sut: SystemUnderTest):
 
     # Get each member of the system collection
     for member in system_ids:
+        operation = "Getting system '{}'".format(member)
+        logger.logger.info(operation)
         try:
-            operation = "Getting system '{}'".format(member)
-            logger.logger.info(operation)
             system_resp = redfish_utilities.get_system(sut.session, member)
             systems.append(system_resp.dict)
             sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
@@ -126,42 +122,50 @@ def boot_test_boot_check(sut: SystemUnderTest, systems: list):
         logger.log_use_case_test_footer(CAT_NAME, test_name)
         return boot_override_params
 
-    # Try to get the boot override object for each system
+    # Inspect the boot object for each system
     for system in systems:
-        operation = "Checking the contents of the 'Boot' property in system '{}'".format(system["Id"])
+        # Check if the system has a boot object
+        operation = "Checking for the 'Boot' property in system '{}'".format(system["Id"])
         logger.logger.info(operation)
         if "Boot" not in system:
             # No boot object; skip
             sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not contain the 'Boot' property.".format(system["Id"]))
             boot_override_params.append(None)
             continue
+        sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
+        # Check if the system has boot override properties
+        operation = "Checking for the 'BootSourceOverrideTarget' and 'BootSourceOverrideEnabled' properties in system '{}'".format(system["Id"])
+        logger.logger.info(operation)
         if "BootSourceOverrideTarget" not in system["Boot"] and "BootSourceOverrideEnabled" not in system["Boot"]:
-            # No boot override properties; skip
+            # Both BootSourceOverrideTarget and BootSourceOverrideEnabled properties not present; skip
             sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not contain the boot override properties.".format(system["Id"]))
             boot_override_params.append(None)
             continue
-
-        if "BootSourceOverrideTarget" in system["Boot"] and "BootSourceOverrideEnabled" in system["Boot"]:
-            # Both properties present; check for payload annotations to help users discover the supported values
-            if "BootSourceOverrideTarget@Redfish.AllowableValues" not in system["Boot"]:
-                sut.add_test_result(CAT_NAME, test_name, operation, "WARN", "System '{}' does not contain 'BootSourceOverrideTarget@Redfish.AllowableValues'.".format(system["Id"]))
-            elif "BootSourceOverrideEnabled@Redfish.AllowableValues" not in system["Boot"]:
-                sut.add_test_result(CAT_NAME, test_name, operation, "WARN", "System '{}' does not contain 'BootSourceOverrideEnabled@Redfish.AllowableValues'.".format(system["Id"]))
-            else:
-                sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
-            # Cache the allowable boot parameters
-            # If the allowable values term is not present, assume it supports PXE, Continuous, and Once
-            boot_params = {}
-            boot_params["PXE"] = system["Boot"].get("BootSourceOverrideTarget@Redfish.AllowableValues", ["Pxe"])
-            boot_params["USB"] = system["Boot"].get("BootSourceOverrideTarget@Redfish.AllowableValues", [])
-            boot_params["Continuous"] = system["Boot"].get("BootSourceOverrideEnabled@Redfish.AllowableValues", ["Continuous"])
-            boot_params["Once"] = system["Boot"].get("BootSourceOverrideEnabled@Redfish.AllowableValues", ["Once"])
-            boot_override_params.append(boot_params)
-        else:
+        elif "BootSourceOverrideTarget" not in system["Boot"] or "BootSourceOverrideEnabled" not in system["Boot"]:
             # Only one of the properties is present; boot override is not useable without both
             sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "System '{}' contains 'BootSourceOverrideTarget' or 'BootSourceOverrideEnabled', but not both.".format(system["Id"]))
             boot_override_params.append(None)
+            continue
+        sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
+
+        # Check for the allowable values properties
+        for allow_prop in ["BootSourceOverrideTarget", "BootSourceOverrideEnabled"]:
+            operation = "Checking for the '{}@Redfish.AllowableValues' property in system '{}'".format(allow_prop, system["Id"])
+            logger.logger.info(operation)
+            if allow_prop + "@Redfish.AllowableValues" not in system["Boot"]:
+                sut.add_test_result(CAT_NAME, test_name, operation, "WARN", "System '{}' does not contain '{}'@Redfish.AllowableValues.".format(system["Id"], allow_prop))
+            else:
+                sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
+
+        # Cache the allowable boot parameters
+        # If the allowable values term is not present, assume it supports PXE, Continuous, and Once
+        boot_params = {}
+        boot_params["PXE"] = system["Boot"].get("BootSourceOverrideTarget@Redfish.AllowableValues", ["Pxe"])
+        boot_params["USB"] = system["Boot"].get("BootSourceOverrideTarget@Redfish.AllowableValues", [])
+        boot_params["Continuous"] = system["Boot"].get("BootSourceOverrideEnabled@Redfish.AllowableValues", ["Continuous"])
+        boot_params["Once"] = system["Boot"].get("BootSourceOverrideEnabled@Redfish.AllowableValues", ["Once"])
+        boot_override_params.append(boot_params)
 
         # Check if the boot object contains other properties as needed by the allowable boot override targets
         boot_override_targets = ["UefiTarget", "UefiHttp", "UefiBootNext"]
@@ -210,7 +214,6 @@ def boot_test_continuous_boot_settings(sut: SystemUnderTest, systems: list, boot
             # No boot override; skip
             sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not support boot override.".format(system["Id"]))
             continue
-
         if boot_param["Continuous"] is False:
             # No continuous boot; skip
             sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not support 'continuous' boot override.".format(system["Id"]))
@@ -273,7 +276,6 @@ def boot_test_one_time_boot_settings(sut: SystemUnderTest, systems: list, boot_o
             # No boot override; skip
             sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not support boot override.".format(system["Id"]))
             continue
-
         if boot_param["Once"] is False:
             # No one-time boot; skip
             sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "System '{}' does not support 'one-time' boot override.".format(system["Id"]))
@@ -346,7 +348,7 @@ def boot_test_one_time_boot_check(sut: SystemUnderTest, systems: list, check_sys
             sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
             reset_success = True
         except Exception as err:
-            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to reset system '{}' ({}).".format(system["Id"], err))
+            sut.add_test_result(CAT_NAME, test_name, operation, "FAILWARN", "Failed to reset system '{}' ({}).".format(system["Id"], err))
 
         # Monitor the system to go back to None
         operation = "Monitoring the boot progress for system '{}'".format(system["Id"])
