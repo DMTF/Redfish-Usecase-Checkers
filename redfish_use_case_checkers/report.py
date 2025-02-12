@@ -1,6 +1,6 @@
 # Copyright Notice:
 # Copyright 2017-2025 Distributed Management Task Force, Inc. All rights reserved.
-# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/blob/main/LICENSE.md
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Use-Case-Checkers/blob/main/LICENSE.md
 
 import html as html_mod
 import json
@@ -47,14 +47,14 @@ html_template = """
         <h2>##### Redfish Use Case Checkers Test Report #####</h2>
         <h4><img align=\"center\" alt=\"DMTF Redfish Logo\" height=\"203\"
             width=\"288\" src=\"data:image/gif;base64,{}\"></h4>
-        <h4><a href=\"https://github.com/DMTF/Redfish-Usecase-Checkers\">
-            https://github.com/DMTF/Redfish-Usecase-Checkers</a></h4>
+        <h4><a href=\"https://github.com/DMTF/Redfish-Use-Case-Checkers\">
+            https://github.com/DMTF/Redfish-Use-Case-Checkers</a></h4>
         Tool Version: {}<br/>
         {}<br/><br/>
         This tool is provided and maintained by the DMTF. For feedback, please
         open issues<br/> in the tool's Github repository:
-        <a href=\"https://github.com/DMTF/Redfish-Usecase-Checkers/issues\">
-            https://github.com/DMTF/Redfish-Usecase-Checkers/issues</a><br/>
+        <a href=\"https://github.com/DMTF/Redfish-Use-Case-Checkers/issues\">
+            https://github.com/DMTF/Redfish-Use-Case-Checkers/issues</a><br/>
       </th>
     </tr>
     <tr>

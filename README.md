@@ -10,8 +10,8 @@ The Redfish Use Case Checkers performs common management use cases to ensure a R
 
 From GitHub:
 
-    git clone https://github.com/DMTF/Redfish-Usecase-Checkers.git
-    cd Redfish-Usecase-Checkers
+    git clone https://github.com/DMTF/Redfish-Use-Case-Checkers.git
+    cd Redfish-Use-Case-Checkers
 
 ## Requirements
 
