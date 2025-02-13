@@ -8,10 +8,16 @@ The Redfish Use Case Checkers performs common management use cases to ensure a R
 
 ## Installation
 
+From PyPI:
+
+    pip install redfish_use_case_checkers
+
 From GitHub:
 
     git clone https://github.com/DMTF/Redfish-Use-Case-Checkers.git
     cd Redfish-Use-Case-Checkers
+    python setup.py sdist
+    pip install dist/redfish_use_case_checkers-x.x.x.tar.gz
 
 ## Requirements
 
@@ -20,7 +26,6 @@ The Redfish Use Case Checkers requires Python3.
 Required external packages:
 
 ```
-jsonschema
 colorama
 redfish
 redfish_utilities
@@ -33,9 +38,9 @@ If installing from GitHub, you may install the external packages by running:
 ## Usage
 
 ```
-usage: rf_use_case_checkers.py [-h] --user USER --password PASSWORD --rhost
-                               RHOST [--report-dir REPORT_DIR] [--relaxed]
-                               [--debugging]
+usage: rf_use_case_checkers [-h] --user USER --password PASSWORD --rhost RHOST
+                            [--report-dir REPORT_DIR] [--relaxed]
+                            [--debugging]
 
 Validate Redfish services against use cases
 
