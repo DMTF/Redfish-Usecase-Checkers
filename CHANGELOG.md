@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.0] - 2025-02-14
+- Rewrote the tool to wrap all testing into a single process and produce a singular HTML report
+
 ## [1.0.8] - 2021-10-22
 - Corrected the '$expand' argument for 'Links' in the query parameter checker
 - Added check for the support of '$levels' prior to testing in the query parameter checker
