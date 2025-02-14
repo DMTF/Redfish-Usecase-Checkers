@@ -29,6 +29,7 @@ from redfish_use_case_checkers import report
 
 tool_version = "1.0.9"
 
+
 def main():
     """
     Entry point for the use case checkers
@@ -38,10 +39,25 @@ def main():
     argget = argparse.ArgumentParser(description="Validate Redfish services against use cases")
     argget.add_argument("--user", "-u", type=str, required=True, help="The username for authentication")
     argget.add_argument("--password", "-p", type=str, required=True, help="The password for authentication")
-    argget.add_argument("--rhost", "-r", type=str, required=True, help="The address of the Redfish service (with scheme)")
-    argget.add_argument("--report-dir", type=str, default="reports", help="the directory for generated report files (default: 'reports')")
-    argget.add_argument("--relaxed", action="store_true", help="Allows for some failures to be logged as warnings; useful if the criteria is to meet the literal 'shall' statements in the specification.")
-    argget.add_argument("--debugging", action="store_true", help="Controls the verbosity of the debugging output; if not specified only INFO and higher are logged.")
+    argget.add_argument(
+        "--rhost", "-r", type=str, required=True, help="The address of the Redfish service (with scheme)"
+    )
+    argget.add_argument(
+        "--report-dir",
+        type=str,
+        default="reports",
+        help="the directory for generated report files (default: 'reports')",
+    )
+    argget.add_argument(
+        "--relaxed",
+        action="store_true",
+        help="Allows for some failures to be logged as warnings; useful if the criteria is to meet the literal 'shall' statements in the specification.",
+    )
+    argget.add_argument(
+        "--debugging",
+        action="store_true",
+        help="Controls the verbosity of the debugging output; if not specified only INFO and higher are logged.",
+    )
     args = argget.parse_args()
 
     # Create report directory if needed
@@ -83,6 +99,7 @@ def main():
     print("HTML Report: {}".format(results_file))
     print("Debug Log: {}".format(log_file))
 
+
 def summary_format(result, result_count):
     """
     Returns a color-coded result format
@@ -101,6 +118,7 @@ def summary_format(result, result_count):
         start, end = color_map.get(result, ("", ""))
     return start, result_count, end
 
+
 def print_summary(sut):
     """
     Prints a stylized summary of the test results
@@ -112,6 +130,22 @@ def print_summary(sut):
     pass_start, passed, pass_end = summary_format("PASS", sut.pass_count)
     warn_start, warned, warn_end = summary_format("WARN", sut.warn_count)
     fail_start, failed, fail_end = summary_format("FAIL", sut.fail_count)
-    no_test_start, not_tested, no_test_end = (summary_format("SKIP", sut.skip_count))
-    print("Summary - %sPASS: %s%s, %sWARN: %s%s, %sFAIL: %s%s, %sNOT TESTED: %s%s" % (pass_start, passed, pass_end, warn_start, warned, warn_end, fail_start, failed, fail_end, no_test_start, not_tested, no_test_end))
+    no_test_start, not_tested, no_test_end = summary_format("SKIP", sut.skip_count)
+    print(
+        "Summary - %sPASS: %s%s, %sWARN: %s%s, %sFAIL: %s%s, %sNOT TESTED: %s%s"
+        % (
+            pass_start,
+            passed,
+            pass_end,
+            warn_start,
+            warned,
+            warn_end,
+            fail_start,
+            failed,
+            fail_end,
+            no_test_start,
+            not_tested,
+            no_test_end,
+        )
+    )
     colorama.deinit()

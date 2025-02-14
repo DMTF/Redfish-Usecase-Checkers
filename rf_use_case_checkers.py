@@ -4,5 +4,5 @@
 
 from redfish_use_case_checkers.console_scripts import main
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

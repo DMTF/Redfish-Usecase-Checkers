@@ -7,6 +7,7 @@ import redfish_utilities
 
 from redfish_use_case_checkers import logger
 
+
 class SystemUnderTest(object):
     def __init__(self, rhost, username, password, relaxed):
         """
@@ -21,7 +22,9 @@ class SystemUnderTest(object):
         self._rhost = rhost
         self._username = username
         self._relaxed = relaxed
-        self._redfish_obj = redfish.redfish_client(base_url=rhost, username=username, password=password, timeout=15, max_retry=3)
+        self._redfish_obj = redfish.redfish_client(
+            base_url=rhost, username=username, password=password, timeout=15, max_retry=3
+        )
         self._redfish_obj.login(auth="session")
         self._service_root = self._redfish_obj.root_resp.dict
         self._results = []

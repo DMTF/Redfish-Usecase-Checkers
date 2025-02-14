@@ -15,18 +15,16 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="DMTF, https://www.dmtf.org/standards/feedback",
-    license="BSD 3-clause \"New\" or \"Revised License\"",
+    license='BSD 3-clause "New" or "Revised License"',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python",
-        "Topic :: Communications"
+        "Topic :: Communications",
     ],
     keywords="Redfish",
     url="https://github.com/DMTF/Redfish-Use-Case-Checkers",
     packages=["redfish_use_case_checkers"],
-    entry_points={
-        "console_scripts": ["rf_use_case_checkers=redfish_use_case_checkers.console_scripts:main"]
-    },
-    install_requires=["colorama", "redfish>=3.0.0", "redfish_utilities>=1.1.4"]
+    entry_points={"console_scripts": ["rf_use_case_checkers=redfish_use_case_checkers.console_scripts:main"]},
+    install_requires=["colorama", "redfish>=3.0.0", "redfish_utilities>=1.1.4"],
 )

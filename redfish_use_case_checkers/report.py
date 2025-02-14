@@ -85,6 +85,7 @@ section_header_html = """
   </table>
 """
 
+
 def html_report(sut: SystemUnderTest, report_dir, time, tool_version):
     """
     Creates the HTML report for the system under test
@@ -105,21 +106,45 @@ def html_report(sut: SystemUnderTest, report_dir, time, tool_version):
         html += section_header_html.format(test_category["Category"])
         for test in test_category["Tests"]:
             html += "<table>"
-            html += "<th colspan=\"3\" class=\"headingrow\">{}: {}<br/>{}</th>".format(test["Name"], test["Description"], test["Details"])
-            html += "<tr><td><b>{}</b></td><td><b>{}</b></td><td><b>{}</b></td></tr>".format("Operation", "Result", "Message")
+            html += '<th colspan="3" class="headingrow">{}: {}<br/>{}</th>'.format(
+                test["Name"], test["Description"], test["Details"]
+            )
+            html += "<tr><td><b>{}</b></td><td><b>{}</b></td><td><b>{}</b></td></tr>".format(
+                "Operation", "Result", "Message"
+            )
             for result in test["Results"]:
                 result_class = ""
                 if result["Result"] == "PASS":
-                    result_class = "class=\"pass\""
+                    result_class = 'class="pass"'
                 elif result["Result"] == "WARN":
-                    result_class = "class=\"warn\""
+                    result_class = 'class="warn"'
                 elif result["Result"] == "FAIL":
-                    result_class = "class=\"fail\""
+                    result_class = 'class="fail"'
                 operation = result["Operation"]
                 if operation == "":
                     operation = "No testing performed"
-                html += "<tr><td>{}</td><td {}>{}</td><td>{}</td></tr>".format(operation, result_class, result["Result"], html_mod.escape(result["Message"]))
+                html += "<tr><td>{}</td><td {}>{}</td><td>{}</td></tr>".format(
+                    operation, result_class, result["Result"], html_mod.escape(result["Message"])
+                )
             html += "</table>"
     with open(str(file), "w", encoding="utf-8") as fd:
-        fd.write(html_template.format(redfish_logo.logo, tool_version, time.strftime("%c"), sut.rhost, sut.username, "********", sut.product, sut.manufacturer, sut.model, sut.firmware_version, sut.pass_count, sut.warn_count, sut.fail_count, sut.skip_count, html))
+        fd.write(
+            html_template.format(
+                redfish_logo.logo,
+                tool_version,
+                time.strftime("%c"),
+                sut.rhost,
+                sut.username,
+                "********",
+                sut.product,
+                sut.manufacturer,
+                sut.model,
+                sut.firmware_version,
+                sut.pass_count,
+                sut.warn_count,
+                sut.fail_count,
+                sut.skip_count,
+                html,
+            )
+        )
     return file

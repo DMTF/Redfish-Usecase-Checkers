@@ -19,13 +19,45 @@ from redfish_use_case_checkers.system_under_test import SystemUnderTest
 from redfish_use_case_checkers import logger
 
 CAT_NAME = "Account Management"
-TEST_USER_COUNT = ("User Count", "Verifies the user list is not empty", "Locates the ManagerAccountCollection resource and performs GET on all members.")
-TEST_ADD_USER = ("Add User", "Verifies that a user can be added", "Performs a POST operation on the ManagerAccountCollection resource.  Performs a GET on the new ManagerAccount resource and verifies the new user matches the specified criteria.")
-TEST_ENABLE_USER = ("Enable User", "Verifies that a user can be enabled", "Performs a PATCH operation on the ManagerAccount resource to enable the new user.  Performs a GET on the ManagerAccount resource and verifies the user account was enabled.")
-TEST_CREDENTIAL_CHECK = ("Credential Check", "Verifies the credentials of the new user are correctly enforced", "Creates a new Redfish session with the new user account.  Attempts to read the members of the ManagerAccountCollection resource with the new session.")
-TEST_CHANGE_ROLE = ("Change Role", "Verifies that user roles can be modified", "Performs PATCH operations on the ManagerAccount resource of the new account to change the role.  Performs a GET on the ManagerAccount resource and verifies the role was changed as requested.")
-TEST_DELETE_USER = ("Delete User", "Verifies that a user can be deleted", "Performs a DELETE operation on the ManagerAccount resource of the new account.  Reads the members of the ManagerAccountCollection resource and verifies the user was deleted.")
-TEST_LIST = [TEST_USER_COUNT, TEST_ADD_USER, TEST_ENABLE_USER, TEST_CREDENTIAL_CHECK, TEST_CHANGE_ROLE, TEST_DELETE_USER]
+TEST_USER_COUNT = (
+    "User Count",
+    "Verifies the user list is not empty",
+    "Locates the ManagerAccountCollection resource and performs GET on all members.",
+)
+TEST_ADD_USER = (
+    "Add User",
+    "Verifies that a user can be added",
+    "Performs a POST operation on the ManagerAccountCollection resource.  Performs a GET on the new ManagerAccount resource and verifies the new user matches the specified criteria.",
+)
+TEST_ENABLE_USER = (
+    "Enable User",
+    "Verifies that a user can be enabled",
+    "Performs a PATCH operation on the ManagerAccount resource to enable the new user.  Performs a GET on the ManagerAccount resource and verifies the user account was enabled.",
+)
+TEST_CREDENTIAL_CHECK = (
+    "Credential Check",
+    "Verifies the credentials of the new user are correctly enforced",
+    "Creates a new Redfish session with the new user account.  Attempts to read the members of the ManagerAccountCollection resource with the new session.",
+)
+TEST_CHANGE_ROLE = (
+    "Change Role",
+    "Verifies that user roles can be modified",
+    "Performs PATCH operations on the ManagerAccount resource of the new account to change the role.  Performs a GET on the ManagerAccount resource and verifies the role was changed as requested.",
+)
+TEST_DELETE_USER = (
+    "Delete User",
+    "Verifies that a user can be deleted",
+    "Performs a DELETE operation on the ManagerAccount resource of the new account.  Reads the members of the ManagerAccountCollection resource and verifies the user was deleted.",
+)
+TEST_LIST = [
+    TEST_USER_COUNT,
+    TEST_ADD_USER,
+    TEST_ENABLE_USER,
+    TEST_CREDENTIAL_CHECK,
+    TEST_CHANGE_ROLE,
+    TEST_DELETE_USER,
+]
+
 
 def use_cases(sut: SystemUnderTest):
     """
@@ -56,6 +88,7 @@ def use_cases(sut: SystemUnderTest):
     acc_test_delete_user(sut, user_added, test_username)
     logger.log_use_case_category_footer(CAT_NAME)
 
+
 def verify_user(context, username, role=None, enabled=None):
     """
     Checks that a given user is in the user list with a certain role
@@ -79,6 +112,7 @@ def verify_user(context, username, role=None, enabled=None):
             return True
 
     return False
+
 
 def acc_test_user_count(sut: SystemUnderTest):
     """
@@ -119,6 +153,7 @@ def acc_test_user_count(sut: SystemUnderTest):
     logger.log_use_case_test_footer(CAT_NAME, test_name)
     return test_username
 
+
 def acc_test_add_user(sut: SystemUnderTest, username: str):
     """
     Performs the add user test
@@ -151,16 +186,25 @@ def acc_test_add_user(sut: SystemUnderTest, username: str):
         except Exception as err:
             last_error = err
     if not user_added:
-        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to create user '{}' ({}).".format(username, last_error))
+        sut.add_test_result(
+            CAT_NAME, test_name, operation, "FAIL", "Failed to create user '{}' ({}).".format(username, last_error)
+        )
 
     # Get the list of current users to verify the new user was added
     if verify_user(sut.session, username, role="Administrator"):
         sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
     else:
-        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to find user '{}' with the role 'Administrator' after successful POST.".format(username))
+        sut.add_test_result(
+            CAT_NAME,
+            test_name,
+            operation,
+            "FAIL",
+            "Failed to find user '{}' with the role 'Administrator' after successful POST.".format(username),
+        )
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)
     return user_added, test_password
+
 
 def acc_test_enable_user(sut: SystemUnderTest, user_added: bool, username: str):
     """
@@ -177,7 +221,13 @@ def acc_test_enable_user(sut: SystemUnderTest, user_added: bool, username: str):
 
     # Skip the test if the test user was not added
     if not user_added:
-        sut.add_test_result(CAT_NAME, test_name, "", "SKIP", "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]))
+        sut.add_test_result(
+            CAT_NAME,
+            test_name,
+            "",
+            "SKIP",
+            "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]),
+        )
         logger.log_use_case_test_footer(CAT_NAME, test_name)
         return
 
@@ -190,13 +240,24 @@ def acc_test_enable_user(sut: SystemUnderTest, user_added: bool, username: str):
             if verify_user(sut.session, username, enabled=True):
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
             else:
-                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "User '{}' not enabled after successful PATCH.".format(username))
+                sut.add_test_result(
+                    CAT_NAME,
+                    test_name,
+                    operation,
+                    "FAIL",
+                    "User '{}' not enabled after successful PATCH.".format(username),
+                )
         else:
-            sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "User '{}' already enabled by the service.".format(username))
+            sut.add_test_result(
+                CAT_NAME, test_name, operation, "SKIP", "User '{}' already enabled by the service.".format(username)
+            )
     except Exception as err:
-        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to enable user '{}' ({}).".format(username, err))
+        sut.add_test_result(
+            CAT_NAME, test_name, operation, "FAIL", "Failed to enable user '{}' ({}).".format(username, err)
+        )
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)
+
 
 def acc_test_credential_check(sut: SystemUnderTest, user_added: bool, username: str, password: str):
     """
@@ -214,7 +275,13 @@ def acc_test_credential_check(sut: SystemUnderTest, user_added: bool, username: 
 
     # Skip the test if the test user was not added
     if not user_added:
-        sut.add_test_result(CAT_NAME, test_name, "", "SKIP", "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]))
+        sut.add_test_result(
+            CAT_NAME,
+            test_name,
+            "",
+            "SKIP",
+            "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]),
+        )
         logger.log_use_case_test_footer(CAT_NAME, test_name)
         return
 
@@ -238,13 +305,20 @@ def acc_test_credential_check(sut: SystemUnderTest, user_added: bool, username: 
     try:
         test_obj.login(auth="session")
         test_list = redfish_utilities.get_users(test_obj)
-        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Successful login with user '{}' when using invalid credentials.".format(username))
+        sut.add_test_result(
+            CAT_NAME,
+            test_name,
+            operation,
+            "FAIL",
+            "Successful login with user '{}' when using invalid credentials.".format(username),
+        )
     except:
         sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
     finally:
         test_obj.logout()
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)
+
 
 def acc_test_change_role(sut: SystemUnderTest, user_added: bool, username: str):
     """
@@ -261,7 +335,13 @@ def acc_test_change_role(sut: SystemUnderTest, user_added: bool, username: str):
 
     # Skip the test if the test user was not added
     if not user_added:
-        sut.add_test_result(CAT_NAME, test_name, "", "SKIP", "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]))
+        sut.add_test_result(
+            CAT_NAME,
+            test_name,
+            "",
+            "SKIP",
+            "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]),
+        )
         logger.log_use_case_test_footer(CAT_NAME, test_name)
         return
 
@@ -272,14 +352,27 @@ def acc_test_change_role(sut: SystemUnderTest, user_added: bool, username: str):
         logger.logger.info(operation)
         try:
             redfish_utilities.modify_user(sut.session, username, new_role=role)
-            if verify_user( sut.session, username, role = role ):
+            if verify_user(sut.session, username, role=role):
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
             else:
-                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to find user '{}' with the role '{}' after successful PATCH.".format(username, role))
+                sut.add_test_result(
+                    CAT_NAME,
+                    test_name,
+                    operation,
+                    "FAIL",
+                    "Failed to find user '{}' with the role '{}' after successful PATCH.".format(username, role),
+                )
         except Exception as err:
-            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to set user '{}' to '{}' ({}).".format(username, role, err))
+            sut.add_test_result(
+                CAT_NAME,
+                test_name,
+                operation,
+                "FAIL",
+                "Failed to set user '{}' to '{}' ({}).".format(username, role, err),
+            )
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)
+
 
 def acc_test_delete_user(sut: SystemUnderTest, user_added: bool, username: str):
     """
@@ -296,7 +389,13 @@ def acc_test_delete_user(sut: SystemUnderTest, user_added: bool, username: str):
 
     # Skip the test if the test user was not added
     if not user_added:
-        sut.add_test_result(CAT_NAME, test_name, "", "SKIP", "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]))
+        sut.add_test_result(
+            CAT_NAME,
+            test_name,
+            "",
+            "SKIP",
+            "Failure of the '{}' test prevents performing this test.".format(TEST_ADD_USER[0]),
+        )
         logger.log_use_case_test_footer(CAT_NAME, test_name)
         return
 
@@ -306,10 +405,18 @@ def acc_test_delete_user(sut: SystemUnderTest, user_added: bool, username: str):
     try:
         redfish_utilities.delete_user(sut.session, username)
         if verify_user(sut.session, username):
-            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "User '{}' is still in the user list after successful DELETE.".format(username))
+            sut.add_test_result(
+                CAT_NAME,
+                test_name,
+                operation,
+                "FAIL",
+                "User '{}' is still in the user list after successful DELETE.".format(username),
+            )
         else:
             sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
     except Exception as err:
-        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to delete user '{}' ({}).".format(username, err))
+        sut.add_test_result(
+            CAT_NAME, test_name, operation, "FAIL", "Failed to delete user '{}' ({}).".format(username, err)
+        )
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)

@@ -19,10 +19,23 @@ from redfish_use_case_checkers.system_under_test import SystemUnderTest
 from redfish_use_case_checkers import logger
 
 CAT_NAME = "Manager Ethernet Interfaces"
-TEST_ETH_INT_COUNT = ("Ethernet Interface Count", "Verifies the Ethernet interface list for each manager is not empty", "Locates the EthernetInterfaceCollection resource for each manager and performs GET on all members.")
-TEST_VLAN_CHECK = ("VLAN Check", "Verifies that an Ethernet interface represents VLAN information correctly", "Verifies the VLAN property is present along with its configuration properties.")
-TEST_ADDRESSES_CHECK = ("Addresses Check", "Verifies that an Ethernet interface represents IP addresses correctly", "Verifies the properties related to IP addresses are present and contain valid values.")
+TEST_ETH_INT_COUNT = (
+    "Ethernet Interface Count",
+    "Verifies the Ethernet interface list for each manager is not empty",
+    "Locates the EthernetInterfaceCollection resource for each manager and performs GET on all members.",
+)
+TEST_VLAN_CHECK = (
+    "VLAN Check",
+    "Verifies that an Ethernet interface represents VLAN information correctly",
+    "Verifies the VLAN property is present along with its configuration properties.",
+)
+TEST_ADDRESSES_CHECK = (
+    "Addresses Check",
+    "Verifies that an Ethernet interface represents IP addresses correctly",
+    "Verifies the properties related to IP addresses are present and contain valid values.",
+)
 TEST_LIST = [TEST_ETH_INT_COUNT, TEST_VLAN_CHECK, TEST_ADDRESSES_CHECK]
+
 
 def use_cases(sut: SystemUnderTest):
     """
@@ -50,6 +63,7 @@ def use_cases(sut: SystemUnderTest):
     mgr_eth_int_test_addresses_check(sut, test_interfaces)
 
     logger.log_use_case_category_footer(CAT_NAME)
+
 
 def invalid_address_check(address):
     """
@@ -81,6 +95,7 @@ def invalid_address_check(address):
             return address
 
     return None
+
 
 def mgr_eth_int_test_interface_count(sut: SystemUnderTest):
     """
@@ -119,7 +134,9 @@ def mgr_eth_int_test_interface_count(sut: SystemUnderTest):
             manager_resp = redfish_utilities.get_manager(sut.session, manager_id)
             sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
         except Exception as err:
-            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to get manager '{}' ({}).".format(manager_id, err))
+            sut.add_test_result(
+                CAT_NAME, test_name, operation, "FAIL", "Failed to get manager '{}' ({}).".format(manager_id, err)
+            )
             continue
 
         # Get the list of Ethernet interfaces
@@ -127,7 +144,13 @@ def mgr_eth_int_test_interface_count(sut: SystemUnderTest):
         logger.logger.info(operation)
         managers[manager_id] = []
         if "EthernetInterfaces" not in manager_resp.dict:
-            sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "Manager '{}' does not contain an Ethernet interface collection.".format(manager_id))
+            sut.add_test_result(
+                CAT_NAME,
+                test_name,
+                operation,
+                "SKIP",
+                "Manager '{}' does not contain an Ethernet interface collection.".format(manager_id),
+            )
             continue
         eth_int_ids = []
         try:
@@ -137,21 +160,36 @@ def mgr_eth_int_test_interface_count(sut: SystemUnderTest):
             else:
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
         except Exception as err:
-            sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to get the Ethernet interface list for manager '{}' ({}).".format(manager_id, err))
+            sut.add_test_result(
+                CAT_NAME,
+                test_name,
+                operation,
+                "FAIL",
+                "Failed to get the Ethernet interface list for manager '{}' ({}).".format(manager_id, err),
+            )
 
         # Get each Ethernet interface
         for interface_id in eth_int_ids:
             operation = "Getting Ethernet interface '{}' from manager '{}'".format(interface_id, manager_id)
             logger.logger.info(operation)
             try:
-                eth_int_resp = redfish_utilities.get_manager_ethernet_interface(sut.session, manager_id=manager_id, interface_id=interface_id)
+                eth_int_resp = redfish_utilities.get_manager_ethernet_interface(
+                    sut.session, manager_id=manager_id, interface_id=interface_id
+                )
                 managers[manager_id].append(eth_int_resp.dict)
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
             except Exception as err:
-                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "Failed to get Ethernet interface '{}' on manager '{}' ({}).".format(interface_id, manager_id, err))
+                sut.add_test_result(
+                    CAT_NAME,
+                    test_name,
+                    operation,
+                    "FAIL",
+                    "Failed to get Ethernet interface '{}' on manager '{}' ({}).".format(interface_id, manager_id, err),
+                )
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)
     return managers
+
 
 def mgr_eth_int_test_vlan_check(sut: SystemUnderTest, eth_ints: dict):
     """
@@ -175,38 +213,61 @@ def mgr_eth_int_test_vlan_check(sut: SystemUnderTest, eth_ints: dict):
     for manager_id, eth_ints_list in eth_ints.items():
         # Skip the manager if there are no Ethernet interfaces
         if len(eth_ints_list) == 0:
-            sut.add_test_result(CAT_NAME, test_name, "", "SKIP", "Manager '{}' does not contain any Ethernet interfaces.".format(manager_id))
+            sut.add_test_result(
+                CAT_NAME,
+                test_name,
+                "",
+                "SKIP",
+                "Manager '{}' does not contain any Ethernet interfaces.".format(manager_id),
+            )
             continue
 
         # Go through each Ethernet interface
         for eth_int in eth_ints_list:
             # Skip the Ethernet interface if it does not have a VLAN property
-            operation = "Checking if Ethernet interface '{}' on manager '{}' has the 'VLAN' property".format(eth_int["Id"], manager_id)
+            operation = "Checking if Ethernet interface '{}' on manager '{}' has the 'VLAN' property".format(
+                eth_int["Id"], manager_id
+            )
             logger.logger.info(operation)
             if "VLAN" not in eth_int:
-                sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "Ethernet interface '{}' on manager '{}' does not have a VLAN.".format(eth_int["Id"], manager_id))
+                sut.add_test_result(
+                    CAT_NAME,
+                    test_name,
+                    operation,
+                    "SKIP",
+                    "Ethernet interface '{}' on manager '{}' does not have a VLAN.".format(eth_int["Id"], manager_id),
+                )
                 continue
             sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
             # Check the properties inside the VLAN object
-            property_check_list = [ "VLANEnable", "VLANId", "VLANPriority", "Tagged" ]
-            req_property_check_list = [ "VLANEnable", "VLANId" ]
+            property_check_list = ["VLANEnable", "VLANId", "VLANPriority", "Tagged"]
+            req_property_check_list = ["VLANEnable", "VLANId"]
             for prop in property_check_list:
-                operation = "Checking the '{}' property of Ethernet interface '{}' on manager '{}'".format(prop, eth_int["Id"], manager_id)
+                operation = "Checking the '{}' property of Ethernet interface '{}' on manager '{}'".format(
+                    prop, eth_int["Id"], manager_id
+                )
                 logger.logger.info(operation)
                 if prop not in eth_int["VLAN"] and prop in req_property_check_list:
                     # Some properties are always expected to be present to ensure the object is useful
-                    sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "The '{}' property is not present.".format(prop))
+                    sut.add_test_result(
+                        CAT_NAME, test_name, operation, "FAIL", "The '{}' property is not present.".format(prop)
+                    )
                 elif prop not in eth_int["VLAN"]:
-                    sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "The '{}' property is not present.".format(prop))
+                    sut.add_test_result(
+                        CAT_NAME, test_name, operation, "SKIP", "The '{}' property is not present.".format(prop)
+                    )
                 else:
                     if eth_int["VLAN"][prop] is None:
                         # Null should only be used for error cases; the property should always have a valid value
-                        sut.add_test_result(CAT_NAME, test_name, operation, "WARN", "The '{}' property is null.".format(prop))
+                        sut.add_test_result(
+                            CAT_NAME, test_name, operation, "WARN", "The '{}' property is null.".format(prop)
+                        )
                     else:
                         sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
     logger.log_use_case_test_footer(CAT_NAME, test_name)
+
 
 def mgr_eth_int_test_addresses_check(sut: SystemUnderTest, eth_ints: dict):
     """
@@ -230,38 +291,79 @@ def mgr_eth_int_test_addresses_check(sut: SystemUnderTest, eth_ints: dict):
     for manager_id, eth_ints_list in eth_ints.items():
         # Skip the manager if there are no Ethernet interfaces
         if len(eth_ints_list) == 0:
-            sut.add_test_result(CAT_NAME, test_name, "", "SKIP", "Manager '{}' does not contain any Ethernet interfaces.".format(manager_id))
+            sut.add_test_result(
+                CAT_NAME,
+                test_name,
+                "",
+                "SKIP",
+                "Manager '{}' does not contain any Ethernet interfaces.".format(manager_id),
+            )
             continue
 
         # Go through each Ethernet interface
         for eth_int in eth_ints_list:
-            address_props = ["NameServers", "StaticNameServers", "IPv4Addresses", "IPv4StaticAddresses", "IPv6Addresses", "IPv6StaticAddresses", "IPv6DefaultGateway", "IPv6StaticDefaultGateways"]
+            address_props = [
+                "NameServers",
+                "StaticNameServers",
+                "IPv4Addresses",
+                "IPv4StaticAddresses",
+                "IPv6Addresses",
+                "IPv6StaticAddresses",
+                "IPv6DefaultGateway",
+                "IPv6StaticDefaultGateways",
+            ]
             non_null_props = ["NameServers", "IPv4Addresses", "IPv6Addresses"]
-            ip_props = ["IPv4Addresses", "IPv4StaticAddresses", "IPv6Addresses", "IPv6StaticAddresses", "IPv6StaticDefaultGateways"]
+            ip_props = [
+                "IPv4Addresses",
+                "IPv4StaticAddresses",
+                "IPv6Addresses",
+                "IPv6StaticAddresses",
+                "IPv6StaticDefaultGateways",
+            ]
             for prop in address_props:
                 # Check for the presence of the property
-                operation = "Checking if Ethernet interface '{}' on manager '{}' contains the '{}' property".format(eth_int["Id"], manager_id, prop)
+                operation = "Checking if Ethernet interface '{}' on manager '{}' contains the '{}' property".format(
+                    eth_int["Id"], manager_id, prop
+                )
                 logger.logger.info(operation)
                 if prop not in eth_int:
-                    sut.add_test_result(CAT_NAME, test_name, operation, "SKIP", "The '{}' property is not present.".format(prop))
+                    sut.add_test_result(
+                        CAT_NAME, test_name, operation, "SKIP", "The '{}' property is not present.".format(prop)
+                    )
                     continue
                 sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
                 # Check for invalid addresses
-                operation = "Checking if Ethernet interface '{}' on manager '{}' does not contain invalid addresses in the '{}' property".format(eth_int["Id"], manager_id, prop)
+                operation = "Checking if Ethernet interface '{}' on manager '{}' does not contain invalid addresses in the '{}' property".format(
+                    eth_int["Id"], manager_id, prop
+                )
                 logger.logger.info(operation)
                 inv_address = invalid_address_check(eth_int[prop])
                 if inv_address is not None:
-                    sut.add_test_result(CAT_NAME, test_name, operation, "FAILWARN", "The '{}' property contains the invalid address '{}'.".format(prop, inv_address))
+                    sut.add_test_result(
+                        CAT_NAME,
+                        test_name,
+                        operation,
+                        "FAILWARN",
+                        "The '{}' property contains the invalid address '{}'.".format(prop, inv_address),
+                    )
                 else:
                     sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
                 # Check for null values
                 if prop in non_null_props:
-                    operation = "Checking if Ethernet interface '{}' on manager '{}' does not contain null values in the '{}' property".format(eth_int["Id"], manager_id, prop)
+                    operation = "Checking if Ethernet interface '{}' on manager '{}' does not contain null values in the '{}' property".format(
+                        eth_int["Id"], manager_id, prop
+                    )
                     logger.logger.info(operation)
                     if None in eth_int[prop]:
-                        sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "The '{}' property contains one or more null values.".format(prop))
+                        sut.add_test_result(
+                            CAT_NAME,
+                            test_name,
+                            operation,
+                            "FAIL",
+                            "The '{}' property contains one or more null values.".format(prop),
+                        )
                     else:
                         sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
@@ -269,23 +371,41 @@ def mgr_eth_int_test_addresses_check(sut: SystemUnderTest, eth_ints: dict):
                 if prop in ip_props:
                     if "IPv4" in prop:
                         # Check that the gateway is only in the first address
-                        operation = "Checking if Ethernet interface '{}' on manager '{}' only contains one gateway in the '{}' property".format(eth_int["Id"], manager_id, prop)
+                        operation = "Checking if Ethernet interface '{}' on manager '{}' only contains one gateway in the '{}' property".format(
+                            eth_int["Id"], manager_id, prop
+                        )
                         logger.logger.info(operation)
                         gateway_pass = True
                         for i, address in enumerate(eth_int[prop]):
                             if "Gateway" in address and i != 0:
-                                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "The '{}' property contains a gateway address outside the first array member.".format(prop))
+                                sut.add_test_result(
+                                    CAT_NAME,
+                                    test_name,
+                                    operation,
+                                    "FAIL",
+                                    "The '{}' property contains a gateway address outside the first array member.".format(
+                                        prop
+                                    ),
+                                )
                                 gateway_pass = True
                                 break
                             elif "Gateway" not in address and i == 0:
-                                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "The '{}' property does not have a gateway in the first array member.".format(prop))
+                                sut.add_test_result(
+                                    CAT_NAME,
+                                    test_name,
+                                    operation,
+                                    "FAIL",
+                                    "The '{}' property does not have a gateway in the first array member.".format(prop),
+                                )
                                 gateway_pass = True
                                 break
                         if gateway_pass:
                             sut.add_test_result(CAT_NAME, test_name, operation, "PASS")
 
                     # Check for other expected properties
-                    operation = "Checking if Ethernet interface '{}' on manager '{}' contains expected properties in the '{}' property".format(eth_int["Id"], manager_id, prop)
+                    operation = "Checking if Ethernet interface '{}' on manager '{}' contains expected properties in the '{}' property".format(
+                        eth_int["Id"], manager_id, prop
+                    )
                     logger.logger.info(operation)
                     if "IPv4" in prop:
                         expected_properties = ["Address", "SubnetMask"]
@@ -300,7 +420,15 @@ def mgr_eth_int_test_addresses_check(sut: SystemUnderTest, eth_ints: dict):
                     for i, address in enumerate(eth_int[prop]):
                         for exp_prop in expected_properties:
                             if exp_prop not in address:
-                                sut.add_test_result(CAT_NAME, test_name, operation, "FAIL", "The '{}' property does not contain the '{}' property at index {}.".format(prop, exp_prop, i))
+                                sut.add_test_result(
+                                    CAT_NAME,
+                                    test_name,
+                                    operation,
+                                    "FAIL",
+                                    "The '{}' property does not contain the '{}' property at index {}.".format(
+                                        prop, exp_prop, i
+                                    ),
+                                )
                                 exp_pass = False
                                 break
                     if exp_pass:
