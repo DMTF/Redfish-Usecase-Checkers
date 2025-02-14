@@ -53,7 +53,7 @@ jobs:
         echo 'EOF' >> $GITHUB_ENV
     - name: Update version numbers
       run: |
-        sed -i -E 's/tool_version = .+/tool_version = '\'${{github.event.inputs.version}}\''/' redfish_use_case_checkers/console_scripts.py
+        sed -i -E 's/tool_version = .+/tool_version = "'${{github.event.inputs.version}}'"/' redfish_use_case_checkers/console_scripts.py
         sed -i -E 's/    version=.+,/    version="'${{github.event.inputs.version}}'",/' setup.py
     - name: Update the changelog
       run: |
