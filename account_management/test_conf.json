@@ -1,5 +1,0 @@
-{
-  "test": {
-    "command": "$interpreter account_management.py -r $target_system -u $username -p $password -S $https -d $output_subdir"
-  }
-}
